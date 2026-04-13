@@ -62,6 +62,11 @@ local targetinfo = vape.Libraries.targetinfo
 local getfontsize = vape.Libraries.getfontsize
 local getcustomasset = vape.Libraries.getcustomasset
 
+local function isactive()
+	local focus = (isrbxactive ~= nil and isrbxactive or iswindowactive)
+	return type(focus) == 'function' and focus() or (focus == nil or focus)
+end
+
 local TargetStrafeVector, SpiderShift, WaypointFolder
 local Spider = {Enabled = false}
 local Phase = {Enabled = false}
@@ -1158,7 +1163,7 @@ run(function()
 	RaycastWhitelist.FilterType = Enum.RaycastFilterType.Include
 	local ProjectileRaycast = RaycastParams.new()
 	ProjectileRaycast.RespectCanCollide = true
-	local fireoffset, rand, delayCheck, silentAimSession = CFrame.identity, Random.new(), tick(), 0
+	local fireoffset, rand, delayCheck, silentAimSession, hooked = CFrame.identity, Random.new(), tick(), 0, false
 	local oldnamecall, oldray
 
 	local function getTarget(origin, obj)
@@ -1192,13 +1197,17 @@ run(function()
 			if Wallbang.Enabled then
 				return {targetPart, targetPart.Position, (targetPart:IsA("BasePart") and targetPart:GetClosestPointOnSurface(origin) or Vector3.new(0, 1, 0)), targetPart.Material}
 			end
-			args[1] = Ray.new(origin, CFrame.lookAt(origin, targetPart.Position).LookVector * args[1].Direction.Magnitude)
+			local dir = (targetPart.Position - origin)
+			if dir.Magnitude == 0 then return end
+			args[1] = Ray.new(origin, dir.Unit * args[1].Direction.Magnitude)
 		end,
 		Raycast = function(args)
 			if MethodRay.Value ~= 'All' and args[3] and args[3].FilterType ~= Enum.RaycastFilterType[MethodRay.Value] then return end
 			local ent, targetPart, origin = getTarget(args[1])
 			if not ent then return end
-			args[2] = CFrame.lookAt(origin, targetPart.Position).LookVector * args[2].Magnitude
+			local dir = (targetPart.Position - origin)
+			if dir.Magnitude == 0 then return end
+			args[2] = dir.Unit * args[2].Magnitude
 			if Wallbang.Enabled then
 				RaycastWhitelist.FilterDescendantsInstances = {targetPart}
 				args[3] = RaycastWhitelist
@@ -1207,13 +1216,15 @@ run(function()
 		ScreenPointToRay = function(args)
 			local ent, targetPart, origin = getTarget(gameCamera.CFrame.Position)
 			if not ent or not targetPart then return end
-			local direction = CFrame.lookAt(origin, targetPart.Position)
+			local dir = (targetPart.Position - origin)
+			if dir.Magnitude == 0 then return end
+			local direction = dir.Unit
 			if Projectile.Enabled then
 				local calc = prediction.SolveTrajectory(origin, ProjectileSpeed.Value, ProjectileGravity.Value, targetPart.Position, targetPart.Velocity, workspace.Gravity, ent.HipHeight, nil, ProjectileRaycast)
 				if not calc then return end
-				direction = CFrame.lookAt(origin, calc)
+				direction = (calc - origin).Unit
 			end
-			return {Ray.new(origin + (args[3] and direction.LookVector * args[3] or Vector3.zero), direction.LookVector)}
+			return {Ray.new(origin + (args[3] and direction * args[3] or Vector3.zero), direction)}
 		end,
 		Ray = function(args)
 			local ent, targetPart, origin = getTarget(args[1])
@@ -1221,9 +1232,11 @@ run(function()
 			if Projectile.Enabled then
 				local calc = prediction.SolveTrajectory(origin, ProjectileSpeed.Value, ProjectileGravity.Value, targetPart.Position, targetPart.Velocity, workspace.Gravity, ent.HipHeight, nil, ProjectileRaycast)
 				if not calc then return end
-				args[2] = CFrame.lookAt(origin, calc).LookVector * args[2].Magnitude
+				args[2] = (calc - origin).Unit * args[2].Magnitude
 			else
-				args[2] = CFrame.lookAt(origin, targetPart.Position).LookVector * args[2].Magnitude
+				local dir = (targetPart.Position - origin)
+				if dir.Magnitude == 0 then return end
+				args[2] = dir.Unit * args[2].Magnitude
 			end
 		end
 	}
@@ -1238,53 +1251,49 @@ run(function()
 				CircleObject.Visible = callback and Mode.Value == "Mouse"
 			end
 			if callback then
-				if oldnamecall or oldray then return end
-				silentAimSession += 1
-				local currentSession = silentAimSession
-				if Method.Value == "Ray" then
+				if not hooked then
+					hooked = true
 					oldray = hookfunction(Ray.new, function(origin, direction)
-						if checkcaller() then
-							return oldray(origin, direction)
-						end
-						local calling = getcallingscript()
-
-						if calling then
-							local list = #IgnoredScripts.ListEnabled > 0 and IgnoredScripts.ListEnabled or {"ControlScript", "ControlModule"}
-							if table.find(list, tostring(calling)) then
-								return oldray(origin, direction)
+						if SilentAim and SilentAim.Enabled and Method.Value == "Ray" and not checkcaller() then
+							local calling = getcallingscript()
+							if calling then
+								local list = #IgnoredScripts.ListEnabled > 0 and IgnoredScripts.ListEnabled or {"ControlScript", "ControlModule"}
+								if table.find(list, tostring(calling)) then
+									return oldray(origin, direction)
+								end
 							end
-						end
 
-						local args = {origin, direction}
-						Hooks.Ray(args)
-						return oldray(unpack(args))
+							local args = {origin, direction}
+							Hooks.Ray(args)
+							return oldray(unpack(args))
+						end
+						return oldray(origin, direction)
 					end)
-				else
-					oldnamecall = hookmetamethod(game, "__namecall", function(...)
-						if getnamecallmethod() ~= Method.Value then
-							return oldnamecall(...)
-						end
-						if checkcaller() then
-							return oldnamecall(...)
-						end
 
-						local calling = getcallingscript()
-						if calling then
-							local list = #IgnoredScripts.ListEnabled > 0 and IgnoredScripts.ListEnabled or {"ControlScript", "ControlModule"}
-							if table.find(list, tostring(calling)) then
-								return oldnamecall(...)
+					oldnamecall = hookmetamethod(game, "__namecall", function(self, ...)
+						local method = getnamecallmethod()
+						if SilentAim and SilentAim.Enabled and method == Method.Value and not checkcaller() then
+							local calling = getcallingscript()
+							if calling then
+								local list = #IgnoredScripts.ListEnabled > 0 and IgnoredScripts.ListEnabled or {"ControlScript", "ControlModule"}
+								if table.find(list, tostring(calling)) then
+									return oldnamecall(self, ...)
+								end
 							end
-						end
 
-						local self, args = ..., {select(2, ...)}
-						local res = Hooks[Method.Value](args)
-						if res then
-							return unpack(res)
+							local args = {...}
+							local res = Hooks[method](args)
+							if res then
+								return unpack(res)
+							end
+							return oldnamecall(self, unpack(args))
 						end
-						return oldnamecall(self, unpack(args))
+						return oldnamecall(self, ...)
 					end)
 				end
 
+				silentAimSession += 1
+				local currentSession = silentAimSession
 				task.spawn(function()
 					repeat
 						if silentAimSession ~= currentSession then break end
@@ -1302,7 +1311,7 @@ run(function()
 								NPCs = Target.NPCs.Enabled
 							})
 
-							if mouse1click and (isrbxactive or iswindowactive)() then
+							if mouse1click and isactive() then
 								if ent and canClick() then
 									if delayCheck < tick() then
 										if mouseClicked then
@@ -1325,13 +1334,7 @@ run(function()
 					until not SilentAim.Enabled or silentAimSession ~= currentSession
 				end)
 			else
-				if oldnamecall then
-					hookmetamethod(game, '__namecall', oldnamecall)
-				end
-				if oldray then
-					hookfunction(Ray.new, oldray)
-				end
-				oldnamecall, oldray = nil, nil
+				-- No unhooking to maintain stability
 			end
 		end,
 		ExtraText = function()
@@ -1548,7 +1551,7 @@ run(function()
 		Function = function(callback)
 			if callback then
 				repeat
-					if mouse1click and (isrbxactive or iswindowactive)() then
+					if mouse1click and isactive() then
 						if getTriggerBotTarget() and canClick() then
 							if delayCheck < tick() then
 								if mouseClicked then
