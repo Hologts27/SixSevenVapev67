@@ -6,40 +6,41 @@
   </picture>
 </p>
 <h2 align="center">
-  A Roblox script built from the ground up for your precise needs!
+  A highly optimized and stable fork of the legendary Vape V4!
   <br/>
-  Rise up to the top while remaining completely untouchable.
+  Rise up to the top while remaining completely untouchable and crash-free.
 </h2>
 
-## Contacts
-[Discord](https://discord.gg/5gJqhQmrdS)
-<br/>
-[Youtube](https://youtube.com/c/7GrandDadVape)
+---
+
+## 🚀 Improvements & Stability Fixes
+This version (SixSevenVapev67) focuses on resolving critical stability issues present in the original repository, specifically targeting frequent crashes and performance bottlenecks.
+
+- **Permanent Hooking System**: Replaced the unstable hook/unhook cycle with a permanent gating system. This prevents fatal client crashes when rapidly toggling modules like Silent Aim.
+- **NaN Vector Protection**: Hardened mathematics in raycasting logic to prevent "Division by Zero" errors (NaN vectors), which are the #1 cause of sudden game closes.
+- **Thread Leak Prevention**: Optimized execution loops to ensure that toggling modules doesn't leave behind "zombie threads," preserving your CPU performance for the game.
+- **Enhanced Executor Support**: Replaced direct focus calls with a safer detector, ensuring compatibility with executors that handle `iswindowactive` as a boolean.
+- **Validation Layers**: Added recursive instance checks for Target parts to prevent "Nil Access" errors during high-speed combat.
 
 ## Usage
-1. Download the specific scripting utility of your choice.
+1. Download a high-quality scripting utility for Roblox.
 2. Execute the provided loadstring below.
 ```luau
 loadstring(game:HttpGet("https://raw.githubusercontent.com/Hologts27/SixSevenVapev67/main/NewMainScript.lua", true))()
 ```
 
-## Possible Issues
-Half of the time its usually the scripting utility at fault, please make sure the utility meets certain quality standards such as.
-1. Supporting file functions & the debug library.
-2. Not implementing lua generated / half baked versions of such functions resulting in unintended behavior.
-3. Maintaining the same behavior across all usages of said functions.
-### User Issues
-If its not the supposed utility at fault, please try some troubleshooting steps.
-1. Deleting the newvape folder (WITH THE GAME CLOSED).
-2. Making sure you have connection to [the main loadstring.](https://raw.githubusercontent.com/Hologts27/SixSevenVapev67/refs/heads/main/NewMainScript.lua)
-3. Ensuring no external script is conflicting with vape.
+## Troubleshooting
+If you encounter issues, please try these steps:
+1. **Delete the `newvape` folder** (with the game closed) to clear cached old files.
+2. Ensure your executor supports **file functions** and the **debug library**.
+3. Making sure you have connection to [the main loadstring.](https://raw.githubusercontent.com/Hologts27/SixSevenVapev67/refs/heads/main/NewMainScript.lua)
 
 ## Developers & Credits
-[7GrandDad](https://github.com/7GrandDadPGN) - Lead maintainer of the project - vaperoblox on Discord
-<br/>
-[rce-incorporated](https://github.com/rce-incorporated/Fiu) - Luau bytecode disassembly with modifications
-<br/>
-[Egor Skriptunoff, boatbomber, and howmanysmall](https://devforum.roblox.com/t/open-source-hashlib/416732/1) - HashLibrary for Luau
-<br/>
-[Vernumerator](https://devforum.roblox.com/t/predict-projectile-ballistics-including-gravity-and-motion/1842434) - Projectile prediction for Roblox
+- **Original Lead**: [7GrandDad](https://github.com/7GrandDadPGN) - Lead maintainer of the project - vaperoblox on Discord.
+- **Refinement & Stability**: [Hologts27](https://github.com/Hologts27) - Performance optimizations and crash-prevention patches.
+- **bytecode disassembly**: [rce-incorporated](https://github.com/rce-incorporated/Fiu)
+- **HashLibrary**: [Egor Skriptunoff, boatbomber, and howmanysmall](https://devforum.roblox.com/t/open-source-hashlib/416732/1)
+- **Projectile Prediction**: [Vernumerator](https://devforum.roblox.com/t/predict-projectile-ballistics-including-gravity-and-motion/1842434)
 
+---
+<p align="center">Made for the community, by the community.</p>
