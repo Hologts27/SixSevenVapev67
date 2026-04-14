@@ -8021,43 +8021,38 @@ run(function()
 					local lplr = game:GetService("Players").LocalPlayer
 					local PlayerGui = lplr:WaitForChild("PlayerGui")
 					
-					-- Auto ATM Minigame (MODO DIOS - CALLBACK HOOK)
+					-- Auto ATM Minigame (SENTINEL HOOK - INSUPERABLE)
 					local PlayerFunc = game:GetService("ReplicatedStorage"):WaitForChild("Remote"):WaitForChild("PlayerFunc")
 					
-					-- Método 1: Hook de Metatabla (Para que sea invisible al script original)
-					local oldHook
-					oldHook = hookmetamethod(PlayerFunc, "__index", function(self, key)
-						if key == "OnClientInvoke" and AutoMinigame.Enabled then
-							local original = oldHook(self, key)
-							return function(method, ...)
-								if method == "hackingMinigame" or method == "startMinigame" or method == "talkToMission" then
-									warn("[Vape] ¡HACKEO BYPASSED! Victoria instantánea.")
-									return true
-								end
-								return original(method, ...)
+					local function wrapCallback(original)
+						return function(method, ...)
+							if AutoMinigame.Enabled and (method == "hackingMinigame" or method == "startMinigame") then
+								warn("[Vape] ¡BYPASS ACTIVADO! (Método Sentinel)")
+								return true
 							end
+							return original(method, ...)
 						end
-						return oldHook(self, key)
-					end)
+					end
 
-					-- Método 2: Hook Directo por si el anterior falla
-					task.spawn(function()
-						while AutoMinigame.Enabled do
-							pcall(function()
-								if PlayerFunc.OnClientInvoke then
-									local oldCallback = PlayerFunc.OnClientInvoke
-									PlayerFunc.OnClientInvoke = function(method, ...)
-										if AutoMinigame.Enabled and (method == "hackingMinigame" or method == "startMinigame") then
-											warn("[Vape] ¡HACKEO COMPLETADO! Retornando True...")
-											return true
-										end
-										return oldCallback(method, ...)
-									end
-								end
-							end)
-							task.wait(5)
+					-- 1. Si ya existe la función, la envolvemos
+					if PlayerFunc.OnClientInvoke then
+						PlayerFunc.OnClientInvoke = wrapCallback(PlayerFunc.OnClientInvoke)
+					end
+
+					-- 2. Hook de Metatabla para detectar si el juego intenta cambiar la función después
+					local mt = getrawmetatable(PlayerFunc)
+					local oldNewIndex = mt.__newindex
+					setreadonly(mt, false)
+					
+					mt.__newindex = newcclosure(function(self, key, value)
+						if self == PlayerFunc and key == "OnClientInvoke" and type(value) == "function" then
+							warn("[Vape] El juego intentó sobrescribir el Hook. Re-envolviendo...")
+							return oldNewIndex(self, key, wrapCallback(value))
 						end
+						return oldNewIndex(self, key, value)
 					end)
+					setreadonly(mt, true)
+					warn("[Vape] Sentinel Hook de Cajero listo.")
 				end)
 			end
 		end,
