@@ -7997,8 +7997,8 @@ run(function()
 	local Remote = game:GetService("ReplicatedStorage"):WaitForChild("Remote"):WaitForChild("PlayerFunc")
 	local BlackMarketItem = game:GetService("ReplicatedStorage"):WaitForChild("Stuff"):WaitForChild("Black Market"):WaitForChild("1"):WaitForChild("Decryption Circuit")
 	
-	-- Módulo para comprar el circuito
-	vape.Categories.World:CreateModule({
+	local BuyCircuit
+	BuyCircuit = vape.Categories.World:CreateModule({
 		Name = "Buy Decryption Circuit",
 		Function = function(callback)
 			if callback then
@@ -8006,7 +8006,7 @@ run(function()
 					Remote:InvokeServer("purchase", {isRestaurant = false, item = BlackMarketItem})
 				end)
 				task.wait(0.1)
-				vape.Categories.World:GetModule("Buy Decryption Circuit"):Toggle() -- Se apaga solo tras comprar
+				BuyCircuit:Toggle() -- Se apaga solo tras comprar
 			end
 		end,
 		Tooltip = "Instantly buys the Decryption Circuit."
@@ -8022,32 +8022,42 @@ run(function()
 					local PlayerGui = lplr:WaitForChild("PlayerGui")
 					
 					while AutoMinigame.Enabled do
-						-- Localizar la GUI de Hacking
 						local screenGui = PlayerGui:FindFirstChild("ScreenGui")
 						local hacking = screenGui and screenGui:FindFirstChild("Center") and screenGui.Center:FindFirstChild("Middle") and screenGui.Center.Middle:FindFirstChild("HackingMinigames")
+						local atmHack = hacking and hacking:FindFirstChild("ATM Hack")
 						
-						if hacking then
-							local atmHack = hacking:FindFirstChild("ATM Hack")
-							local terminalHack = hacking:FindFirstChild("Terminal Hack")
-							
-							-- Lógica para ATM Hack (Click anywhere when highlight matches)
-							if atmHack and atmHack.Visible then
-								local headline = atmHack:FindFirstChild("Headline")
-								if headline and headline.Text == "CLICK ANYWHERE" then
-									-- Simulamos un click enviando un input al juego
-									game:GetService("VirtualInputManager"):SendMouseButtonEvent(0, 0, 0, true, game, 0)
-									task.wait(0.1)
-									game:GetService("VirtualInputManager"):SendMouseButtonEvent(0, 0, 0, false, game, 0)
-									task.wait(0.5) -- Evitar spam
+						if atmHack and atmHack.Visible then
+							-- 1. Obtenemos las palabras que el juego nos pide (Las de arriba)
+							local targetLabel = atmHack:FindFirstChild("Sequence1") or atmHack:FindFirstChild("Sequence2") or atmHack:FindFirstChild("Sequence3")
+							if targetLabel and targetLabel.Text ~= "" then
+								local targets = string.split(targetLabel.Text, " ")
+								
+								-- 2. Buscamos qué palabra de la cuadrícula tiene el "Highlight" en el background
+								for _, box in pairs(atmHack:GetDescendants()) do
+									if box:IsA("TextLabel") and box.Visible and #box.Text > 0 then
+										local frame = box.Parent
+										if frame:IsA("Frame") then
+											-- Detectamos el "Highlight" por opacidad (si el fondo es visible)
+											-- No importa el color, solo que el fondo no sea transparente
+											if frame.BackgroundTransparency < 0.5 then
+												-- 3. Si está resaltada, COMPARAMOS el contenido
+												for _, word in pairs(targets) do
+													if box.Text == word then
+														-- ¡ES LA PALABRA CORRECTA! Clicamos.
+														game:GetService("VirtualInputManager"):SendMouseButtonEvent(0, 0, 0, true, game, 0)
+														task.wait(0.05)
+														game:GetService("VirtualInputManager"):SendMouseButtonEvent(0, 0, 0, false, game, 0)
+														task.wait(0.3) -- Cooldown para el siguiente objetivo
+														break
+													end
+												end
+											end
+										end
+									end
 								end
 							end
-							
-							-- Lógica para Terminal Hack
-							if terminalHack and terminalHack.Visible then
-								-- Aquí podríamos añadir la lógica de secuencias
-							end
 						end
-						task.wait(0.1)
+						task.wait(0.04) -- Escaneo rápido para no perder el highlight
 					end
 				end)
 			end
