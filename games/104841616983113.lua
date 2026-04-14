@@ -1244,6 +1244,7 @@ run(function()
 			})
 
 			if ent then
+				targetinfo.Targets[ent] = tick() + 1
 				if ent.Player then
 					local tire = getTire(ent.Player)
 					if tire and tire.Parent then
@@ -1265,7 +1266,9 @@ run(function()
 	end
 
 	local Hooks = {
-		FindPartOnRayWithIgnoreList = function(args)
+		FindPartOnRayWithIgnoreList = function(args, self)
+			if typeof(self) ~= "Instance" or not self:IsA("WorldRoot") then return end
+			if typeof(args[1]) ~= "Ray" then return end
 			local ent, targetPart, origin = getTarget(args[1].Origin, {args[2]})
 			if not ent or not targetPart then return end
 			if Wallbang.Enabled then
@@ -1275,7 +1278,9 @@ run(function()
 			if dir.Magnitude == 0 then return end
 			args[1] = Ray.new(origin, dir.Unit * args[1].Direction.Magnitude)
 		end,
-		Raycast = function(args)
+		Raycast = function(args, self)
+			if typeof(self) ~= "Instance" or not self:IsA("WorldRoot") then return end
+			if typeof(args[1]) ~= "Vector3" or typeof(args[2]) ~= "Vector3" then return end
 			if MethodRay.Value ~= 'All' and args[3] and args[3].FilterType ~= Enum.RaycastFilterType[MethodRay.Value] then return end
 			local ent, targetPart, origin = getTarget(args[1])
 			if not ent then return end
@@ -1287,7 +1292,8 @@ run(function()
 				args[3] = RaycastWhitelist
 			end
 		end,
-		ScreenPointToRay = function(args)
+		ScreenPointToRay = function(args, self)
+			if typeof(self) ~= "Instance" or not self:IsA("WorldRoot") then return end
 			local ent, targetPart, origin = getTarget(gameCamera.CFrame.Position)
 			if not ent or not targetPart then return end
 			local dir = (targetPart.Position - origin)
@@ -1356,7 +1362,7 @@ run(function()
 							end
 
 							local args = {...}
-							local res = Hooks[method](args)
+							local res = Hooks[method](args, self)
 							if res then
 								return unpack(res)
 							end
