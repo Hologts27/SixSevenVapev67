@@ -8077,8 +8077,7 @@ run(function()
 						end
 						warn("[Vape] God Mode Limpio. (Ignorando estados de personaje)")
 					end)
-					end)
-				end)
+				end
 			end
 		end,
 		Tooltip = "Automatically completes the ATM hacking minigame for you."
@@ -8113,6 +8112,89 @@ run(function()
 			end
 		end,
 		Tooltip = "Automatically picks up cash from the ground."
+	})
+
+	-- Módulo para Auto ATM Farmer
+	local AutoFarmer = {Enabled = false}
+	local SafezonePos = nil
+	
+	-- Botón para guardar la zona segura
+	vape.Categories.World:CreateModule({
+		Name = "Set AutoRob Safezone",
+		Function = function(callback)
+			if callback then
+				local root = lplr.Character and lplr.Character:FindFirstChild("HumanoidRootPart")
+				if root then
+					SafezonePos = root.CFrame
+					warn("[Vape] Zona segura guardada en: " .. tostring(root.Position))
+				end
+				task.wait(0.1)
+				-- Se apaga solo después de guardar
+				return false 
+			end
+		end,
+		Tooltip = "Saves your current position as the safe spot to return to after robbing."
+	})
+
+	AutoFarmer = vape.Categories.World:CreateModule({
+		Name = "Auto ATM Farmer",
+		Function = function(callback)
+			AutoFarmer.Enabled = callback
+			if callback then
+				if not SafezonePos then
+					warn("[Vape] ¡ERROR! Primero debes marcar una zona segura con 'Set AutoRob Safezone'.")
+					AutoFarmer.ToggleButton(false)
+					return
+				end
+
+				task.spawn(function()
+					while AutoFarmer.Enabled do
+						local atms = workspace:FindFirstChild("World") and workspace.World:FindFirstChild("Interactive") and workspace.World.Interactive:FindFirstChild("ATMs")
+						local foundRobbable = false
+
+						if atms then
+							for _, atm in pairs(atms:GetChildren()) do
+								if not AutoFarmer.Enabled then break end
+								
+								-- Buscamos el prompt de robo (Mission)
+								local prompt = atm:FindFirstChildWhichIsA("ProximityPrompt", true)
+								if prompt and prompt.Name == "Mission" and prompt.Enabled then
+									foundRobbable = true
+									local root = lplr.Character and lplr.Character:FindFirstChild("HumanoidRootPart")
+									if root then
+										-- 1. TP al Cajero
+										warn("[Vape] Teletransportando al cajero: " .. atm.Name)
+										root.CFrame = atm.PrimaryPart and atm.PrimaryPart.CFrame or atm:GetModelCFrame()
+										task.wait(0.5)
+										
+										-- 2. Interactuar
+										fireproximityprompt(prompt)
+										
+										-- 3. Esperar a que se complete el robo (nuestro hack lo hará instantáneo)
+										-- Esperamos un momento para que el dinero caiga y el AutoCash lo recoja
+										task.wait(2) 
+										
+										-- 4. Regresar a zona segura
+										warn("[Vape] Robo completado. Regresando a zona segura...")
+										root.CFrame = SafezonePos
+										
+										-- 5. Esperar cooldown entre robos para evitar sospechas (o para que el servidor procese)
+										task.wait(3)
+									end
+								end
+							end
+						end
+
+						if not foundRobbable then
+							warn("[Vape] No hay cajeros disponibles. Esperando regeneración...")
+							task.wait(10)
+						end
+						task.wait(1)
+					end
+				end)
+			end
+		end,
+		Tooltip = "Teleports to ATMs, robs them, and returns to safezone automatically."
 	})
 
 	-- Módulo para Auto Lockpick
