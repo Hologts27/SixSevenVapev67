@@ -8021,14 +8021,16 @@ run(function()
 					local lplr = game:GetService("Players").LocalPlayer
 					local PlayerGui = lplr:WaitForChild("PlayerGui")
 					
-					-- Auto ATM Minigame (UNIVERSAL SNIPER - TODO EL JUEGO)
+					-- Auto ATM Minigame (SNIPER DEFINITIVO)
 					task.spawn(function()
+						local getconstants = debug and debug.getconstants or getconstants
+						if not getconstants then warn("[Vape] Tu exploit no soporta getconstants.") return end
+
 						local function patch()
 							local patched = false
 							for _, f in pairs(getgc()) do
-								if type(f) == "function" then
-									-- Escaneamos constantes sin importar el nombre del script
-									local success, constants = pcall(function() return debug.getconstants(f) end)
+								if type(f) == "function" and not is_synapse_function(f) then
+									local success, constants = pcall(function() return getconstants(f) end)
 									if success and constants then
 										local isHackingFunc = false
 										for _, c in pairs(constants) do
@@ -8039,15 +8041,16 @@ run(function()
 										end
 										
 										if isHackingFunc then
-											hookfunction(f, function(...)
+											local old
+											old = hookfunction(f, function(...)
 												if AutoMinigame.Enabled then
-													warn("[Vape] ¡SNIPER HOOK ACTIVADO! Inyectando victoria...")
+													warn("[Vape] ¡HACKEO BYPASSED EN MEMORIA!")
 													return true
 												end
-												return f(...)
+												return old(...)
 											end)
 											patched = true
-											warn("[Vape] Sniper Universal encontró la función y la parcheó.")
+											warn("[Vape] Parche aplicado con éxito.")
 										end
 									end
 								end
@@ -8055,10 +8058,9 @@ run(function()
 							return patched
 						end
 
-						warn("[Vape] Iniciando escaneo universal de memoria...")
+						warn("[Vape] Escaneando memoria...")
 						if not patch() then
-							warn("[Vape] Función no encontrada. Esperando carga del minijuego...")
-							repeat task.wait(3) until patch()
+							repeat task.wait(5) until patch()
 						end
 					end)
 				end)
