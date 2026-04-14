@@ -8028,8 +8028,9 @@ run(function()
 
 						local function patch()
 							local patched = false
+							local is_synapse = is_synapse_function or function() return false end
 							for _, f in pairs(getgc()) do
-								if type(f) == "function" and not is_synapse_function(f) then
+								if type(f) == "function" and not is_synapse(f) then
 									local success, constants = pcall(function() return getconstants(f) end)
 									if success and constants then
 										local isHackingFunc = false
