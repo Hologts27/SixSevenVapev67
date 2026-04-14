@@ -8021,37 +8021,25 @@ run(function()
 					local lplr = game:GetService("Players").LocalPlayer
 					local PlayerGui = lplr:WaitForChild("PlayerGui")
 					
+					local lastStates = {}
 					while AutoMinigame.Enabled do
 						local screenGui = PlayerGui:FindFirstChild("ScreenGui")
 						local hacking = screenGui and screenGui:FindFirstChild("Center") and screenGui.Center:FindFirstChild("Middle") and screenGui.Center.Middle:FindFirstChild("HackingMinigames")
 						local atmHack = hacking and hacking:FindFirstChild("ATM Hack")
 						
 						if atmHack and atmHack.Visible then
-							local targetLabel = atmHack:FindFirstChild("Sequence1") or atmHack:FindFirstChild("Sequence2") or atmHack:FindFirstChild("Sequence3")
-							if targetLabel then
-								local targets = string.split(targetLabel.Text, " ")
-								
-								for _, box in pairs(atmHack:GetDescendants()) do
-									-- Si encontramos el texto de una de las palabras objetivo...
-									if box:IsA("TextLabel") and box.Visible and #box.Text > 0 then
-										for _, t in pairs(targets) do
-											if box.Text == t then
-												-- ESCUPE A LA CONSOLA LAS PROPIEDADES PARA VER QUÉ CAMBIA
-												-- (Solo una vez por segundo para no laguear)
-												local frame = box.Parent
-												warn("[Vape Debug] Palabra: " .. box.Text .. " | Transp: " .. tostring(frame.BackgroundTransparency or "N/A") .. " | Color: " .. tostring(frame.BackgroundColor3 or "N/A"))
-												
-												-- Lógica tentativa: Si el fondo NO es el negro/gris por defecto
-												if frame:IsA("Frame") and frame.BackgroundTransparency < 0.5 then
-													game:GetService("VirtualInputManager"):SendMouseButtonEvent(0, 0, 0, true, game, 0)
-													task.wait(0.05)
-													game:GetService("VirtualInputManager"):SendMouseButtonEvent(0, 0, 0, false, game, 0)
-													task.wait(0.3)
-													break
-												end
-											end
-										end
+							for _, v in pairs(atmHack:GetDescendants()) do
+								-- Rastreamos cambios en cualquier objeto que pueda ser el "Highlight"
+								if v:IsA("Frame") or v:IsA("ImageLabel") then
+									local stateKey = v:GetFullName()
+									local currentState = tostring(v.Position) .. tostring(v.BackgroundColor3) .. tostring(v.Visible)
+									
+									if lastStates[stateKey] and lastStates[stateKey] ~= currentState then
+										-- ¡ALGO HA CAMBIADO! Es muy probable que esto sea el highlight
+										warn("[Vape Detect] ¡Cambio detectado en: " .. v.Name .. " (" .. v.ClassName .. ")!")
+										warn(" > Propiedades actuales: Position: " .. tostring(v.Position) .. " | Color: " .. tostring(v.BackgroundColor3))
 									end
+									lastStates[stateKey] = currentState
 								end
 							end
 						end
