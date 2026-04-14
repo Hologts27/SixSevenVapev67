@@ -8021,56 +8021,39 @@ run(function()
 					local lplr = game:GetService("Players").LocalPlayer
 					local PlayerGui = lplr:WaitForChild("PlayerGui")
 					
-					-- Auto ATM Minigame (GHOST SOLVER - UI)
+					-- Auto ATM Minigame (THE MASTER HIJACK)
 					task.spawn(function()
-						while AutoMinigame.Enabled do
-							local screenGui = PlayerGui:FindFirstChild("ScreenGui")
-							local hacking = screenGui and screenGui:FindFirstChild("Center") and screenGui.Center:FindFirstChild("Middle") and screenGui.Center.Middle:FindFirstChild("HackingMinigames")
-							local atmHack = hacking and hacking:FindFirstChild("ATM Hack")
-							
-							if atmHack and atmHack.Visible then
-								local targetLabel = atmHack:FindFirstChild("Sequence1") or atmHack:FindFirstChild("Sequence2") or atmHack:FindFirstChild("Sequence3")
-								if targetLabel and targetLabel.Text ~= "" then
-									local targets = string.split(targetLabel.Text, " ")
+						local function hijack()
+							-- Buscamos la tabla de funciones que el juego usa (Framework Table)
+							for _, t in pairs(getgc(true)) do
+								if type(t) == "table" and rawget(t, "hackingMinigame") and type(t.hackingMinigame) == "function" then
+									-- ¡ENCONTRADA! La tabla que maneja el Remote.PlayerFunc
+									local oldHacking = t.hackingMinigame
+									t.hackingMinigame = function(...)
+										if AutoMinigame.Enabled then
+											warn("[Vape] ¡SISTEMA HIJACKEADO! Victoria instantánea concedida.")
+											return true
+										end
+										return oldHacking(...)
+									end
 									
-									for _, box in pairs(atmHack:GetDescendants()) do
-										if box:IsA("TextLabel") and box.Visible and #box.Text > 0 and box.Name ~= "Headline" then
-											-- Verificamos si es la palabra que buscamos
-											local isTarget = false
-											for _, t in pairs(targets) do
-												if box.Text == t then isTarget = true break end
-											end
-											
-											if isTarget then
-												-- Buscamos el Highlight (si está brillando, es la correcta ahora)
-												local bg = box.Parent:FindFirstChild("Background") or box:FindFirstChild("Background") or box.Parent
-												local isHighlighted = (bg.BackgroundColor3.R > 0.4 or bg.BackgroundTransparency < 0.1)
-												
-												if isHighlighted then
-													-- ENVIAR CLIC FANTASMA (Sin mover ratón)
-													local btn = box:FindFirstAncestorOfClass("TextButton") or box.Parent:FindFirstChildOfClass("TextButton") or (box:IsA("TextButton") and box)
-													if btn then
-														for _, conn in pairs(getconnections(btn.MouseButton1Click)) do
-															conn:Fire()
-														end
-														for _, conn in pairs(getconnections(btn.Activated)) do
-															conn:Fire()
-														end
-													else
-														-- Si no hay botón, buscamos el detector de entrada del Parent
-														local parent = box.Parent
-														for _, conn in pairs(getconnections(parent.InputBegan)) do
-															conn:Fire({UserInputType = Enum.UserInputType.MouseButton1, UserInputState = Enum.UserInputState.Begin})
-														end
-													end
-													task.wait(0.5) -- Esperar a la siguiente palabra
-												end
-											end
+									if rawget(t, "startMinigame") then
+										local oldStart = t.startMinigame
+										t.startMinigame = function(...)
+											if AutoMinigame.Enabled then return true end
+											return oldStart(...)
 										end
 									end
+									
+									warn("[Vape] Master Hijack activo. ¡Disfruta los robos!")
+									return true
 								end
 							end
-							task.wait(0.1)
+							return false
+						end
+
+						if not hijack() then
+							repeat task.wait(2) until hijack()
 						end
 					end)
 				end)
