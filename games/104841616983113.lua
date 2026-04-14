@@ -8021,34 +8021,43 @@ run(function()
 					local lplr = game:GetService("Players").LocalPlayer
 					local PlayerGui = lplr:WaitForChild("PlayerGui")
 					
-					-- Auto ATM Minigame (SENTINEL HOOK v2 - SIN LECTURA)
-					local PlayerFunc = game:GetService("ReplicatedStorage"):WaitForChild("Remote"):WaitForChild("PlayerFunc")
-					
-					local function wrapCallback(original)
-						return function(method, ...)
-							if AutoMinigame.Enabled and (method == "hackingMinigame" or method == "startMinigame") then
-								warn("[Vape] ¡HACKEO AUTOMÁTICO ACTIVADO!")
-								return true
+					-- Auto ATM Minigame (SNIPER PATCH - MEMORIA)
+					task.spawn(function()
+						local function patch()
+							local patched = false
+							for _, f in pairs(getgc()) do
+								if type(f) == "function" and getfenv(f).script and getfenv(f).script.Name == "Interaction" then
+									-- Buscamos constantes del minijuego en las funciones de Interaction
+									local constants = debug.getconstants(f)
+									local isHackingFunc = false
+									for _, c in pairs(constants) do
+										if c == "hackingMinigame" or c == "startMinigame" then
+											isHackingFunc = true
+											break
+										end
+									end
+									
+									if isHackingFunc then
+										hookfunction(f, function(...)
+											if AutoMinigame.Enabled then
+												warn("[Vape] ¡SNIPER HOOK DETECTADO! Ganando minijuego...")
+												return true
+											end
+											return f(...)
+										end)
+										patched = true
+										warn("[Vape] Sniper Patch aplicado a la función de memoria.")
+									end
+								end
 							end
-							-- Si no es hackeo, ejecutamos la función original del juego
-							return original(method, ...)
+							return patched
 						end
-					end
 
-					-- Usamos la metatabla para atrapar el momento en que el juego asigna su función
-					local mt = getrawmetatable(PlayerFunc)
-					local oldNewIndex = mt.__newindex
-					setreadonly(mt, false)
-					
-					mt.__newindex = newcclosure(function(self, key, value)
-						if self == PlayerFunc and key == "OnClientInvoke" and type(value) == "function" then
-							-- Interceptamos la función original del juego y la envolvemos
-							return oldNewIndex(self, key, wrapCallback(value))
+						if not patch() then
+							warn("[Vape] No se encontró la función en el primer escaneo. Re-intentando...")
+							repeat task.wait(2) until patch()
 						end
-						return oldNewIndex(self, key, value)
 					end)
-					setreadonly(mt, true)
-					warn("[Vape] Sentinel Hook v2 activo. (Esperando interacción del juego)")
 				end)
 			end
 		end,
