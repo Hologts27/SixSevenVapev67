@@ -8021,43 +8021,33 @@ run(function()
 					local lplr = game:GetService("Players").LocalPlayer
 					local PlayerGui = lplr:WaitForChild("PlayerGui")
 					
-					-- Auto ATM Minigame DEFINITIVO
+					-- Auto ATM Minigame POR REMOTES (INSTANTÁNEO)
 					while AutoMinigame.Enabled do
 						local screenGui = PlayerGui:FindFirstChild("ScreenGui")
 						local hacking = screenGui and screenGui:FindFirstChild("Center") and screenGui.Center:FindFirstChild("Middle") and screenGui.Center.Middle:FindFirstChild("HackingMinigames")
 						local atmHack = hacking and hacking:FindFirstChild("ATM Hack")
 						
 						if atmHack and atmHack.Visible then
-							local targetLabel = atmHack:FindFirstChild("Sequence1") or atmHack:FindFirstChild("Sequence2")
-							if targetLabel and targetLabel.Text ~= "" then
-								local targets = string.split(targetLabel.Text, " ")
-								
-								-- Buscamos todas las cajas de texto en la cuadrícula
-								for _, box in pairs(atmHack:GetDescendants()) do
-									if box:IsA("TextLabel") and box.Visible and #box.Text > 0 and box.Name ~= "Headline" and box.Name ~= "Bottomline" then
-										-- Verificamos si su "Background" (ImageLabel) está resaltado
-										local highlight = box.Parent:FindFirstChild("Background") or box:FindFirstChild("Background")
-										if highlight and highlight:IsA("ImageLabel") then
-											-- El highlight se detecta porque deja de ser transparente
-											if highlight.ImageTransparency < 0.5 or highlight.Visible == true then
-												-- Comparamos texto
-												for _, t in pairs(targets) do
-													if box.Text == t then
-														-- ¡ACIERTO!
-														game:GetService("VirtualInputManager"):SendMouseButtonEvent(0, 0, 0, true, game, 0)
-														task.wait(0.05)
-														game:GetService("VirtualInputManager"):SendMouseButtonEvent(0, 0, 0, false, game, 0)
-														task.wait(0.5) -- Esperar a la siguiente ronda
-														break
-													end
-												end
-											end
-										end
+							-- 1. Buscamos el ATM más cercano
+							local nearestInteraction = nil
+							local minDist = 20
+							for _, v in pairs(workspace.World.Interactive:GetDescendants()) do
+								if v.Name == "_Interaction" then
+									local dist = (lplr.Character.HumanoidRootPart.Position - v.Parent.Position).Magnitude
+									if dist < minDist then
+										minDist = dist
+										nearestInteraction = v
 									end
 								end
 							end
+							
+							-- 2. Si lo encontramos, enviamos el Remote de acierto
+							if nearestInteraction then
+								Remote:InvokeServer("talkToMission", nearestInteraction)
+								task.wait(0.1) -- Spam controlado
+							end
 						end
-						task.wait(0.03) -- Máxima velocidad de escaneo
+						task.wait(0.1)
 					end
 				end)
 			end
