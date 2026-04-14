@@ -8031,21 +8031,36 @@ run(function()
 									local oldHacking = t.hackingMinigame
 									t.hackingMinigame = function(...)
 										if AutoMinigame.Enabled then
-											warn("[Vape] ¡SISTEMA HIJACKEADO! Victoria instantánea concedida.")
+											warn("[Vape] ¡HOCKING HIJACKEADO!")
 											return true
 										end
 										return oldHacking(...)
 									end
 									
+									-- Hijack para Lockpick (Añadimos soporte basado en la captura de pantalla)
+									local lockpickNames = {"Lockpick", "lockpickMinigame", "lockpickingMinigame", "lockpicking", "startLockpick"}
+									for _, name in pairs(lockpickNames) do
+										if rawget(t, name) then
+											local oldLock = t[name]
+											t[name] = function(...)
+												if AutoLockpick.Enabled then
+													warn("[Vape] ¡LOCKPICK HIJACKEADO!")
+													return true
+												end
+												return oldLock(...)
+											end
+										end
+									end
+									
 									if rawget(t, "startMinigame") then
 										local oldStart = t.startMinigame
 										t.startMinigame = function(...)
-											if AutoMinigame.Enabled then return true end
+											if AutoMinigame.Enabled or (AutoLockpick and AutoLockpick.Enabled) then return true end
 											return oldStart(...)
 										end
 									end
 									
-									warn("[Vape] Master Hijack activo. ¡Disfruta los robos!")
+									warn("[Vape] Master Hijack Expandido (ATM + Lockpick).")
 									return true
 								end
 							end
@@ -8060,6 +8075,35 @@ run(function()
 			end
 		end,
 		Tooltip = "Automatically completes the ATM hacking minigame for you."
+	})
+
+	-- Módulo para Auto Lockpick
+	AutoLockpick = vape.Categories.World:CreateModule({
+		Name = "Auto Lockpick",
+		Function = function(callback) end,
+		Tooltip = "Instantly wins the lockpicking minigame."
+	})
+
+	-- Módulo para Comprar Lockpick
+	BuyLockpick = vape.Categories.World:CreateModule({
+		Name = "Buy Lockpick",
+		Function = function(callback)
+			if callback then
+				BuyLockpick.ToggleButton(false)
+				task.spawn(function()
+					local args = {
+						"purchase",
+						{
+							isRestaurant = false,
+							item = game:GetService("ReplicatedStorage"):WaitForChild("Stuff"):WaitForChild("Black Market"):WaitForChild("2"):WaitForChild("Lockpick Device")
+						}
+					}
+					game:GetService("ReplicatedStorage"):WaitForChild("Remote"):WaitForChild("PlayerFunc"):InvokeServer(unpack(args))
+					warn("[Vape] Lockpick comprado con éxito.")
+				end)
+			end
+		end,
+		Tooltip = "Instantly buys a Lockpick Device from the Black Market."
 	})
 end)
 	
