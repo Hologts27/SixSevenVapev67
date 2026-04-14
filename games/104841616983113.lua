@@ -8021,66 +8021,43 @@ run(function()
 					local lplr = game:GetService("Players").LocalPlayer
 					local PlayerGui = lplr:WaitForChild("PlayerGui")
 					
-					-- Auto ATM Minigame (SISTEMA DIAGNÓSTICO)
-					while AutoMinigame.Enabled do
-						local screenGui = PlayerGui:FindFirstChild("ScreenGui")
-						local hacking = screenGui and screenGui:FindFirstChild("Center") and screenGui.Center:FindFirstChild("Middle") and screenGui.Center.Middle:FindFirstChild("HackingMinigames")
-						local atmHack = hacking and hacking:FindFirstChild("ATM Hack")
-						
-						if atmHack and atmHack.Visible then
-							local targetLabel = atmHack:FindFirstChild("Sequence1") or atmHack:FindFirstChild("Sequence2") or atmHack:FindFirstChild("Sequence3")
-							if targetLabel and targetLabel.Text ~= "" then
-								local targets = string.split(targetLabel.Text, " ")
-								
-								for _, box in pairs(atmHack:GetDescendants()) do
-									if box:IsA("TextLabel") and box.Visible and #box.Text > 0 and box.Name ~= "Headline" then
-										-- Buscamos el Highlight (puede ser el Parent o un hijo)
-										local bg = box.Parent:FindFirstChild("Background") or box:FindFirstChild("Background") or box.Parent
-										
-										-- DETECCIÓN DE HIGHLIGHT: Cualquier casilla que no sea transparente o tenga color brillante
-										local isHighlighted = false
-										if bg:IsA("ImageLabel") or bg:IsA("Frame") then
-											if bg.BackgroundTransparency < 0.2 or (bg:IsA("ImageLabel") and bg.ImageTransparency < 0.2) or bg.Visible == true then
-												-- Filtro de seguridad: el color de fondo no debe ser el gris oscuro de las demas
-												if bg.BackgroundColor3.R > 0.4 then isHighlighted = true end
-											end
+					-- Auto ATM Minigame (MODO DIOS - CALLBACK HOOK)
+					local PlayerFunc = game:GetService("ReplicatedStorage"):WaitForChild("Remote"):WaitForChild("PlayerFunc")
+					
+					-- Método 1: Hook de Metatabla (Para que sea invisible al script original)
+					local oldHook
+					oldHook = hookmetamethod(PlayerFunc, "__index", function(self, key)
+						if key == "OnClientInvoke" and AutoMinigame.Enabled then
+							local original = oldHook(self, key)
+							return function(method, ...)
+								if method == "hackingMinigame" or method == "startMinigame" or method == "talkToMission" then
+									warn("[Vape] ¡HACKEO BYPASSED! Victoria instantánea.")
+									return true
+								end
+								return original(method, ...)
+							end
+						end
+						return oldHook(self, key)
+					end)
+
+					-- Método 2: Hook Directo por si el anterior falla
+					task.spawn(function()
+						while AutoMinigame.Enabled do
+							pcall(function()
+								if PlayerFunc.OnClientInvoke then
+									local oldCallback = PlayerFunc.OnClientInvoke
+									PlayerFunc.OnClientInvoke = function(method, ...)
+										if AutoMinigame.Enabled and (method == "hackingMinigame" or method == "startMinigame") then
+											warn("[Vape] ¡HACKEO COMPLETADO! Retornando True...")
+											return true
 										end
-										
-										if isHighlighted then
-											for _, t in pairs(targets) do
-												-- Evitamos detectar el label de arriba (el de la secuencia completa)
-												if box.Text == t and #box.Text < 4 then
-													warn("[Vape] ¡HACKEANDO: " .. box.Text .. "!")
-													pcall(function()
-														local btn = box:IsA("TextButton") and box or box.Parent:FindFirstChildWhichIsA("TextButton") or box.Parent
-														local x, y = box.AbsolutePosition.X + (box.AbsoluteSize.X / 2), box.AbsolutePosition.Y + (box.AbsoluteSize.Y / 2)
-														
-														-- 1. Movemos el mouse (para que el juego vea que estamos ahí)
-														game:GetService("VirtualInputManager"):SendMouseMoveEvent(x, y, game)
-														
-														-- 2. Disparamos todos los eventos posibles
-														local events = {"MouseButton1Click", "MouseButton1Down", "InputBegan"}
-														for _, eventName in pairs(events) do
-															if btn[eventName] then
-																for _, conn in pairs(getconnections(btn[eventName])) do conn:Fire() end
-															end
-														end
-													end)
-													task.wait(0.1) -- Delay mínimo para no perder el siguiente highlight
-													break
-												end
-											end
-										end
+										return oldCallback(method, ...)
 									end
 								end
-							else
-								-- warn("[Vape Debug] No veo el texto del objetivo (Sequence1)")
-							end
-						else
-							-- warn("[Vape Debug] No veo el menú de hackeo (ATM Hack)")
+							end)
+							task.wait(5)
 						end
-						task.wait(0.05)
-					end
+					end)
 				end)
 			end
 		end,
