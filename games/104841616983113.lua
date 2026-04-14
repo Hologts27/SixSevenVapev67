@@ -8021,38 +8021,34 @@ run(function()
 					local lplr = game:GetService("Players").LocalPlayer
 					local PlayerGui = lplr:WaitForChild("PlayerGui")
 					
-					-- Auto ATM Minigame (SENTINEL HOOK - INSUPERABLE)
+					-- Auto ATM Minigame (SENTINEL HOOK v2 - SIN LECTURA)
 					local PlayerFunc = game:GetService("ReplicatedStorage"):WaitForChild("Remote"):WaitForChild("PlayerFunc")
 					
 					local function wrapCallback(original)
 						return function(method, ...)
 							if AutoMinigame.Enabled and (method == "hackingMinigame" or method == "startMinigame") then
-								warn("[Vape] ¡BYPASS ACTIVADO! (Método Sentinel)")
+								warn("[Vape] ¡HACKEO AUTOMÁTICO ACTIVADO!")
 								return true
 							end
+							-- Si no es hackeo, ejecutamos la función original del juego
 							return original(method, ...)
 						end
 					end
 
-					-- 1. Si ya existe la función, la envolvemos
-					if PlayerFunc.OnClientInvoke then
-						PlayerFunc.OnClientInvoke = wrapCallback(PlayerFunc.OnClientInvoke)
-					end
-
-					-- 2. Hook de Metatabla para detectar si el juego intenta cambiar la función después
+					-- Usamos la metatabla para atrapar el momento en que el juego asigna su función
 					local mt = getrawmetatable(PlayerFunc)
 					local oldNewIndex = mt.__newindex
 					setreadonly(mt, false)
 					
 					mt.__newindex = newcclosure(function(self, key, value)
 						if self == PlayerFunc and key == "OnClientInvoke" and type(value) == "function" then
-							warn("[Vape] El juego intentó sobrescribir el Hook. Re-envolviendo...")
+							-- Interceptamos la función original del juego y la envolvemos
 							return oldNewIndex(self, key, wrapCallback(value))
 						end
 						return oldNewIndex(self, key, value)
 					end)
 					setreadonly(mt, true)
-					warn("[Vape] Sentinel Hook de Cajero listo.")
+					warn("[Vape] Sentinel Hook v2 activo. (Esperando interacción del juego)")
 				end)
 			end
 		end,
