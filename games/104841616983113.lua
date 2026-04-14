@@ -8021,47 +8021,56 @@ run(function()
 					local lplr = game:GetService("Players").LocalPlayer
 					local PlayerGui = lplr:WaitForChild("PlayerGui")
 					
-					-- Auto ATM Minigame (SNIPER DEFINITIVO)
+					-- Auto ATM Minigame (GHOST SOLVER - UI)
 					task.spawn(function()
-						local getconstants = debug and debug.getconstants or getconstants
-						if not getconstants then warn("[Vape] Tu exploit no soporta getconstants.") return end
-
-						local function patch()
-							local patched = false
-							local is_synapse = is_synapse_function or function() return false end
-							for _, f in pairs(getgc()) do
-								if type(f) == "function" and not is_synapse(f) then
-									local success, constants = pcall(function() return getconstants(f) end)
-									if success and constants then
-										local isHackingFunc = false
-										for _, c in pairs(constants) do
-											if c == "hackingMinigame" or c == "startMinigame" then
-												isHackingFunc = true
-												break
+						while AutoMinigame.Enabled do
+							local screenGui = PlayerGui:FindFirstChild("ScreenGui")
+							local hacking = screenGui and screenGui:FindFirstChild("Center") and screenGui.Center:FindFirstChild("Middle") and screenGui.Center.Middle:FindFirstChild("HackingMinigames")
+							local atmHack = hacking and hacking:FindFirstChild("ATM Hack")
+							
+							if atmHack and atmHack.Visible then
+								local targetLabel = atmHack:FindFirstChild("Sequence1") or atmHack:FindFirstChild("Sequence2") or atmHack:FindFirstChild("Sequence3")
+								if targetLabel and targetLabel.Text ~= "" then
+									local targets = string.split(targetLabel.Text, " ")
+									
+									for _, box in pairs(atmHack:GetDescendants()) do
+										if box:IsA("TextLabel") and box.Visible and #box.Text > 0 and box.Name ~= "Headline" then
+											-- Verificamos si es la palabra que buscamos
+											local isTarget = false
+											for _, t in pairs(targets) do
+												if box.Text == t then isTarget = true break end
 											end
-										end
-										
-										if isHackingFunc then
-											local old
-											old = hookfunction(f, function(...)
-												if AutoMinigame.Enabled then
-													warn("[Vape] ¡HACKEO BYPASSED EN MEMORIA!")
-													return true
+											
+											if isTarget then
+												-- Buscamos el Highlight (si está brillando, es la correcta ahora)
+												local bg = box.Parent:FindFirstChild("Background") or box:FindFirstChild("Background") or box.Parent
+												local isHighlighted = (bg.BackgroundColor3.R > 0.4 or bg.BackgroundTransparency < 0.1)
+												
+												if isHighlighted then
+													-- ENVIAR CLIC FANTASMA (Sin mover ratón)
+													local btn = box:FindFirstAncestorOfClass("TextButton") or box.Parent:FindFirstChildOfClass("TextButton") or (box:IsA("TextButton") and box)
+													if btn then
+														for _, conn in pairs(getconnections(btn.MouseButton1Click)) do
+															conn:Fire()
+														end
+														for _, conn in pairs(getconnections(btn.Activated)) do
+															conn:Fire()
+														end
+													else
+														-- Si no hay botón, buscamos el detector de entrada del Parent
+														local parent = box.Parent
+														for _, conn in pairs(getconnections(parent.InputBegan)) do
+															conn:Fire({UserInputType = Enum.UserInputType.MouseButton1, UserInputState = Enum.UserInputState.Begin})
+														end
+													end
+													task.wait(0.5) -- Esperar a la siguiente palabra
 												end
-												return old(...)
-											end)
-											patched = true
-											warn("[Vape] Parche aplicado con éxito.")
+											end
 										end
 									end
 								end
 							end
-							return patched
-						end
-
-						warn("[Vape] Escaneando memoria...")
-						if not patch() then
-							repeat task.wait(5) until patch()
+							task.wait(0.1)
 						end
 					end)
 				end)
