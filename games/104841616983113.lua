@@ -8021,41 +8021,44 @@ run(function()
 					local lplr = game:GetService("Players").LocalPlayer
 					local PlayerGui = lplr:WaitForChild("PlayerGui")
 					
-					-- Auto ATM Minigame (SNIPER PATCH - MEMORIA)
+					-- Auto ATM Minigame (UNIVERSAL SNIPER - TODO EL JUEGO)
 					task.spawn(function()
 						local function patch()
 							local patched = false
 							for _, f in pairs(getgc()) do
-								if type(f) == "function" and getfenv(f).script and getfenv(f).script.Name == "Interaction" then
-									-- Buscamos constantes del minijuego en las funciones de Interaction
-									local constants = debug.getconstants(f)
-									local isHackingFunc = false
-									for _, c in pairs(constants) do
-										if c == "hackingMinigame" or c == "startMinigame" then
-											isHackingFunc = true
-											break
-										end
-									end
-									
-									if isHackingFunc then
-										hookfunction(f, function(...)
-											if AutoMinigame.Enabled then
-												warn("[Vape] ¡SNIPER HOOK DETECTADO! Ganando minijuego...")
-												return true
+								if type(f) == "function" then
+									-- Escaneamos constantes sin importar el nombre del script
+									local success, constants = pcall(function() return debug.getconstants(f) end)
+									if success and constants then
+										local isHackingFunc = false
+										for _, c in pairs(constants) do
+											if c == "hackingMinigame" or c == "startMinigame" then
+												isHackingFunc = true
+												break
 											end
-											return f(...)
-										end)
-										patched = true
-										warn("[Vape] Sniper Patch aplicado a la función de memoria.")
+										end
+										
+										if isHackingFunc then
+											hookfunction(f, function(...)
+												if AutoMinigame.Enabled then
+													warn("[Vape] ¡SNIPER HOOK ACTIVADO! Inyectando victoria...")
+													return true
+												end
+												return f(...)
+											end)
+											patched = true
+											warn("[Vape] Sniper Universal encontró la función y la parcheó.")
+										end
 									end
 								end
 							end
 							return patched
 						end
 
+						warn("[Vape] Iniciando escaneo universal de memoria...")
 						if not patch() then
-							warn("[Vape] No se encontró la función en el primer escaneo. Re-intentando...")
-							repeat task.wait(2) until patch()
+							warn("[Vape] Función no encontrada. Esperando carga del minijuego...")
+							repeat task.wait(3) until patch()
 						end
 					end)
 				end)
