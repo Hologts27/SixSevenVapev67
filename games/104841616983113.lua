@@ -8021,33 +8021,37 @@ run(function()
 					local lplr = game:GetService("Players").LocalPlayer
 					local PlayerGui = lplr:WaitForChild("PlayerGui")
 					
-					-- Auto ATM Minigame POR REMOTES (INSTANTÁNEO)
+					-- Auto ATM Minigame (VISUAL ALTA PRECISIÓN)
 					while AutoMinigame.Enabled do
 						local screenGui = PlayerGui:FindFirstChild("ScreenGui")
 						local hacking = screenGui and screenGui:FindFirstChild("Center") and screenGui.Center:FindFirstChild("Middle") and screenGui.Center.Middle:FindFirstChild("HackingMinigames")
 						local atmHack = hacking and hacking:FindFirstChild("ATM Hack")
 						
 						if atmHack and atmHack.Visible then
-							local nearestInteraction = nil
-							local minDist = 15
-							for _, v in pairs(workspace.World.Interactive:GetDescendants()) do
-								if v.Name == "_Interaction" then
-									local p = v.Parent:IsA("Model") and v.Parent.PrimaryPart or v.Parent:IsA("BasePart") and v.Parent or v
-									local dist = (lplr.Character.HumanoidRootPart.Position - p.Position).Magnitude
-									if dist < minDist then
-										minDist = dist
-										nearestInteraction = v
+							local targetLabel = atmHack:FindFirstChild("Sequence1") or atmHack:FindFirstChild("Sequence2") or atmHack:FindFirstChild("Sequence3")
+							if targetLabel and targetLabel.Text ~= "" then
+								local targets = string.split(targetLabel.Text, " ")
+								for _, box in pairs(atmHack:GetDescendants()) do
+									if box:IsA("TextLabel") and box.Visible and #box.Text > 0 and box.Name ~= "Headline" then
+										local bg = box.Parent:FindFirstChild("Background") or box:FindFirstChild("Background")
+										if bg and bg:IsA("ImageLabel") and (bg.ImageTransparency < 0.1 or bg.Visible) then
+											for _, t in pairs(targets) do
+												if box.Text == t then
+													local x = box.AbsolutePosition.X + (box.AbsoluteSize.X / 2)
+													local y = box.AbsolutePosition.Y + (box.AbsoluteSize.Y / 2)
+													game:GetService("VirtualInputManager"):SendMouseButtonEvent(x, y, 0, true, game, 0)
+													task.wait(0.01)
+													game:GetService("VirtualInputManager"):SendMouseButtonEvent(x, y, 0, false, game, 0)
+													task.wait(0.5)
+													break
+												end
+											end
+										end
 									end
 								end
 							end
-							
-							if nearestInteraction then
-								-- Enviamos el comando y esperamos un tiempo prudencial para no saturar
-								Remote:InvokeServer("talkToMission", nearestInteraction)
-								task.wait(1.5) -- Delay más largo para evitar el error de Vector3
-							end
 						end
-						task.wait(0.1)
+						task.wait(0.01)
 					end
 				end)
 			end
