@@ -8021,7 +8021,7 @@ run(function()
 					local lplr = game:GetService("Players").LocalPlayer
 					local PlayerGui = lplr:WaitForChild("PlayerGui")
 					
-					-- Auto ATM Minigame (SISTEMA DE EVENTOS DIRECTO)
+					-- Auto ATM Minigame (SISTEMA DIAGNÓSTICO)
 					while AutoMinigame.Enabled do
 						local screenGui = PlayerGui:FindFirstChild("ScreenGui")
 						local hacking = screenGui and screenGui:FindFirstChild("Center") and screenGui.Center:FindFirstChild("Middle") and screenGui.Center.Middle:FindFirstChild("HackingMinigames")
@@ -8031,34 +8031,46 @@ run(function()
 							local targetLabel = atmHack:FindFirstChild("Sequence1") or atmHack:FindFirstChild("Sequence2") or atmHack:FindFirstChild("Sequence3")
 							if targetLabel and targetLabel.Text ~= "" then
 								local targets = string.split(targetLabel.Text, " ")
+								
 								for _, box in pairs(atmHack:GetDescendants()) do
 									if box:IsA("TextLabel") and box.Visible and #box.Text > 0 and box.Name ~= "Headline" then
-										local bg = box.Parent:FindFirstChild("Background") or box:FindFirstChild("Background")
-										if bg and bg:IsA("ImageLabel") and (bg.ImageTransparency < 0.1 or bg.Visible) then
+										-- Buscamos el Highlight (puede ser el Parent o un hijo)
+										local bg = box.Parent:FindFirstChild("Background") or box:FindFirstChild("Background") or box.Parent
+										
+										-- DETECCIÓN DE HIGHLIGHT: Cualquier casilla que no sea transparente o tenga color brillante
+										local isHighlighted = false
+										if bg:IsA("ImageLabel") or bg:IsA("Frame") then
+											if bg.BackgroundTransparency < 0.2 or (bg:IsA("ImageLabel") and bg.ImageTransparency < 0.2) or bg.Visible == true then
+												-- Filtro de seguridad: el color de fondo no debe ser el gris oscuro de las demas
+												if bg.BackgroundColor3.R > 0.4 then isHighlighted = true end
+											end
+										end
+										
+										if isHighlighted then
 											for _, t in pairs(targets) do
-												if box.Text == t then
-													-- DISPARO DIRECTO DE EVENTOS (Multi-evento para mayor compatibilidad)
+												if box.Text:match(t) then
+													warn("[Vape] ¡HIGHLIGHT CORRECTO DETECTADO en " .. box.Text .. "! Disparando evento...")
 													pcall(function()
 														local btn = box:IsA("TextButton") and box or box.Parent:FindFirstChildWhichIsA("TextButton") or box.Parent
 														local events = {"MouseButton1Click", "MouseButton1Down", "InputBegan"}
 														for _, eventName in pairs(events) do
-															if btn[eventName] then
-																for _, conn in pairs(getconnections(btn[eventName])) do
-																	conn:Fire()
-																end
-															end
+															for _, conn in pairs(getconnections(btn[eventName])) do conn:Fire() end
 														end
 													end)
-													task.wait(0.5)
+													task.wait(0.6)
 													break
 												end
 											end
 										end
 									end
 								end
+							else
+								-- warn("[Vape Debug] No veo el texto del objetivo (Sequence1)")
 							end
+						else
+							-- warn("[Vape Debug] No veo el menú de hackeo (ATM Hack)")
 						end
-						task.wait(0.01)
+						task.wait(0.05)
 					end
 				end)
 			end
