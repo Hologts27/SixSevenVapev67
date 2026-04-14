@@ -1167,13 +1167,17 @@ run(function()
 	local oldnamecall, oldray
 
 	local function getVehicle(plr)
-		local vehiclesFolder = workspace:FindFirstChild("Gameplay") and workspace.Gameplay:FindFirstChild("Vehicles")
-		if not vehiclesFolder then return end
+		local gameplay = workspace:FindFirstChild("Gameplay")
+		local vehiclesFolder = gameplay and gameplay:FindFirstChild("Vehicles")
+		if not vehiclesFolder then 
+			warn("[Vape Debug] No se encontró la carpeta workspace.Gameplay.Vehicles")
+			return 
+		end
 		for i, v in vehiclesFolder:GetChildren() do
 			local config = v:FindFirstChild("Config")
 			if config then
 				local belongsTo = config:FindFirstChild("BelongsTo")
-				if belongsTo and belongsTo.Value == plr.UserId then
+				if belongsTo and tonumber(belongsTo.Value) == plr.UserId then
 					return v
 				end
 			end
@@ -1184,18 +1188,25 @@ run(function()
 	local function getTire(plr)
 		local vehicle = getVehicle(plr)
 		if vehicle then
+			warn("[Vape Debug] Vehículo de " .. plr.Name .. " encontrado: " .. vehicle.Name)
 			local tires = {}
 			for i, v in vehicle:GetDescendants() do
-				if v.Name == "WheelCollision" and v:IsA("BasePart") and v.Transparency < 0.5 then
-					table.insert(tires, v)
+				if v.Name == "WheelCollision" and v:IsA("BasePart") then
+					if v.Transparency < 0.5 then
+						table.insert(tires, v)
+					else
+						warn("[Vape Debug] Rueda " .. v.Parent.Name .. " está rota (Ignorada)")
+					end
 				end
 			end
 			if #tires > 0 then
 				table.sort(tires, function(a, b)
 					return (a.Position - gameCamera.CFrame.Position).Magnitude < (b.Position - gameCamera.CFrame.Position).Magnitude
 				end)
+				warn("[Vape Debug] Apuntando a neumático de " .. plr.Name)
 				return tires[1]
 			end
+			warn("[Vape Debug] No se encontraron neumáticos 'WheelCollision' utilizables")
 		end
 		return nil
 	end
@@ -1233,13 +1244,13 @@ run(function()
 			})
 
 			if ent then
-				targetinfo.Targets[ent] = tick() + 1
 				if ent.Player then
 					local tire = getTire(ent.Player)
 					if tire and tire.Parent then
 						return ent, tire, origin
 					end
 				end
+				warn("[Vape Debug] Sin ruedas válidas, apuntando a jugador: " .. (ent.Player and ent.Player.Name or "NPC"))
 				if ent[targetPart] and ent[targetPart].Parent then
 					if Projectile.Enabled then
 						ProjectileRaycast.FilterDescendantsInstances = {gameCamera, ent.Character}
