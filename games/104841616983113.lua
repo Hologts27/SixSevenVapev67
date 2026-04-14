@@ -8021,7 +8021,7 @@ run(function()
 					local lplr = game:GetService("Players").LocalPlayer
 					local PlayerGui = lplr:WaitForChild("PlayerGui")
 					
-					-- Auto ATM Minigame (VISUAL ALTA PRECISIÓN)
+					-- Auto ATM Minigame (SISTEMA DE EVENTOS DIRECTO)
 					while AutoMinigame.Enabled do
 						local screenGui = PlayerGui:FindFirstChild("ScreenGui")
 						local hacking = screenGui and screenGui:FindFirstChild("Center") and screenGui.Center:FindFirstChild("Middle") and screenGui.Center.Middle:FindFirstChild("HackingMinigames")
@@ -8037,11 +8037,18 @@ run(function()
 										if bg and bg:IsA("ImageLabel") and (bg.ImageTransparency < 0.1 or bg.Visible) then
 											for _, t in pairs(targets) do
 												if box.Text == t then
-													local x = box.AbsolutePosition.X + (box.AbsoluteSize.X / 2)
-													local y = box.AbsolutePosition.Y + (box.AbsoluteSize.Y / 2)
-													game:GetService("VirtualInputManager"):SendMouseButtonEvent(x, y, 0, true, game, 0)
-													task.wait(0.01)
-													game:GetService("VirtualInputManager"):SendMouseButtonEvent(x, y, 0, false, game, 0)
+													-- DISPARO DIRECTO DE EVENTOS (Multi-evento para mayor compatibilidad)
+													pcall(function()
+														local btn = box:IsA("TextButton") and box or box.Parent:FindFirstChildWhichIsA("TextButton") or box.Parent
+														local events = {"MouseButton1Click", "MouseButton1Down", "InputBegan"}
+														for _, eventName in pairs(events) do
+															if btn[eventName] then
+																for _, conn in pairs(getconnections(btn[eventName])) do
+																	conn:Fire()
+																end
+															end
+														end
+													end)
 													task.wait(0.5)
 													break
 												end
