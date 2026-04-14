@@ -8021,27 +8021,34 @@ run(function()
 					local lplr = game:GetService("Players").LocalPlayer
 					local PlayerGui = lplr:WaitForChild("PlayerGui")
 					
-					-- Auto ATM & Lockpick (GOD MODE - ESTABLE)
+					-- Auto ATM & Lockpick (GOD MODE - REFINADO)
 					task.spawn(function()
 						local PlayerFunc = game:GetService("ReplicatedStorage"):WaitForChild("Remote"):WaitForChild("PlayerFunc")
 						
+						local function isBlacklisted(name)
+							local n = tostring(name)
+							return n == "lockEmotes" or n == "lockHumanoidState"
+						end
+
 						local function patchTable(t)
 							for name, func in pairs(t) do
 								local n = tostring(name):lower()
 								if type(func) == "function" and (n:find("minigame") or n:find("lock") or n:find("hack")) then
-									local old = t[name]
-									t[name] = function(...)
-										if (AutoMinigame.Enabled and (n:find("hack") or n:find("minigame"))) or (AutoLockpick.Enabled and (n:find("lock") or n:find("minigame"))) then
-											warn("[Vape] ¡INTERCEPTADO! Victoria en: "..tostring(name))
-											return true
+									if not isBlacklisted(name) then
+										local old = t[name]
+										t[name] = function(...)
+											if (AutoMinigame.Enabled and (n:find("hack") or n:find("minigame"))) or (AutoLockpick.Enabled and (n:find("lock") or n:find("minigame"))) then
+												warn("[Vape] ¡INTERCEPTADO! Victoria en: "..tostring(name))
+												return true
+											end
+											return old(...)
 										end
-										return old(...)
 									end
 								end
 							end
 						end
 
-						-- Hook de Metatabla para atrapar al juego cuando asigne su función
+						-- Hook de Metatabla
 						local mt = getrawmetatable(PlayerFunc)
 						local oldNewIndex = mt.__newindex
 						setreadonly(mt, false)
@@ -8050,9 +8057,10 @@ run(function()
 								local original = value
 								value = function(method, ...)
 									local m = tostring(method):lower()
-									warn("[Vape DEBUG] El servidor pidió: "..tostring(method))
+									if isBlacklisted(method) then return original(method, ...) end
+									
 									if (AutoMinigame.Enabled or AutoLockpick.Enabled) and (m:find("minigame") or m:find("lock") or m:find("hack")) then
-										warn("[Vape] ¡BLOQUEO DIRECTO EXITOSO!")
+										warn("[Vape] ¡BLOQUEO EXITOSO! " .. tostring(method))
 										return true
 									end
 									return original(method, ...)
@@ -8062,15 +8070,49 @@ run(function()
 						end)
 						setreadonly(mt, true)
 
-						-- Escaneo inicial por si el juego ya cargó
 						for _, t in pairs(getgc(true)) do
 							if type(t) == "table" and rawget(t, "hackingMinigame") then
 								patchTable(t)
 							end
 						end
-						
-						warn("[Vape] God Mode (ATM + Lockpick) activo y sin errores.")
+						warn("[Vape] God Mode Limpio. (Ignorando estados de personaje)")
 					end)
+				end)
+			end
+		end,
+		Tooltip = "Automatically completes the ATM hacking minigame for you."
+	})
+
+	-- Módulo para Auto Recoger Dinero
+	local AutoCash = {Enabled = false}
+	AutoCash = vape.Categories.World:CreateModule({
+		Name = "Auto Collect Cash",
+		Function = function(callback)
+			AutoCash.Enabled = callback
+			if callback then
+				task.spawn(function()
+					while AutoCash.Enabled do
+						-- El dinero aparece en Entities
+						local entities = workspace:FindFirstChild("Gameplay") and workspace.Gameplay:FindFirstChild("Entities")
+						if entities then
+							for _, v in pairs(entities:GetChildren()) do
+								if v.Name == "CashDrop" and v:FindFirstChild("Interaction") then
+									local prompt = v.Interaction:FindFirstChild("CashDrop")
+									if prompt then
+										game:GetService("ReplicatedStorage").Remote.PlayerFunc:InvokeServer("cashDrop", prompt)
+										warn("[Vape] Dinero recogido automáticamente.")
+										task.wait(0.1)
+									end
+								end
+							end
+						end
+						task.wait(1)
+					end
+				end)
+			end
+		end,
+		Tooltip = "Automatically picks up cash from the ground."
+	})
 				end)
 			end
 		end,
