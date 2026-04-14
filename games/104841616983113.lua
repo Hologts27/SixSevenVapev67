@@ -8028,12 +8028,12 @@ run(function()
 						local atmHack = hacking and hacking:FindFirstChild("ATM Hack")
 						
 						if atmHack and atmHack.Visible then
-							-- 1. Buscamos el ATM más cercano
 							local nearestInteraction = nil
-							local minDist = 20
+							local minDist = 15
 							for _, v in pairs(workspace.World.Interactive:GetDescendants()) do
 								if v.Name == "_Interaction" then
-									local dist = (lplr.Character.HumanoidRootPart.Position - v.Parent.Position).Magnitude
+									local p = v.Parent:IsA("Model") and v.Parent.PrimaryPart or v.Parent:IsA("BasePart") and v.Parent or v
+									local dist = (lplr.Character.HumanoidRootPart.Position - p.Position).Magnitude
 									if dist < minDist then
 										minDist = dist
 										nearestInteraction = v
@@ -8041,10 +8041,10 @@ run(function()
 								end
 							end
 							
-							-- 2. Si lo encontramos, enviamos el Remote de acierto
 							if nearestInteraction then
+								-- Enviamos el comando y esperamos un tiempo prudencial para no saturar
 								Remote:InvokeServer("talkToMission", nearestInteraction)
-								task.wait(0.1) -- Spam controlado
+								task.wait(1.5) -- Delay más largo para evitar el error de Vector3
 							end
 						end
 						task.wait(0.1)
