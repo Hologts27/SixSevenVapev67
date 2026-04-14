@@ -8031,7 +8031,7 @@ run(function()
 							local terminalHack = hacking:FindFirstChild("Terminal Hack")
 							
 							-- Lógica para ATM Hack (Click anywhere when highlight matches)
-							if atmHack and atmHack.Visible and atmHack.GroupTransparency < 0.5 then
+							if atmHack and atmHack.Visible then
 								local headline = atmHack:FindFirstChild("Headline")
 								if headline and headline.Text == "CLICK ANYWHERE" then
 									-- Simulamos un click enviando un input al juego
@@ -8042,8 +8042,8 @@ run(function()
 								end
 							end
 							
-							-- Lógica para Terminal Hack (Próximamente si lo necesitas)
-							if terminalHack and terminalHack.Visible and terminalHack.GroupTransparency < 0.5 then
+							-- Lógica para Terminal Hack
+							if terminalHack and terminalHack.Visible then
 								-- Aquí podríamos añadir la lógica de secuencias
 							end
 						end
