@@ -8021,32 +8021,43 @@ run(function()
 					local lplr = game:GetService("Players").LocalPlayer
 					local PlayerGui = lplr:WaitForChild("PlayerGui")
 					
-					local lastStates = {}
+					-- Auto ATM Minigame DEFINITIVO
 					while AutoMinigame.Enabled do
 						local screenGui = PlayerGui:FindFirstChild("ScreenGui")
 						local hacking = screenGui and screenGui:FindFirstChild("Center") and screenGui.Center:FindFirstChild("Middle") and screenGui.Center.Middle:FindFirstChild("HackingMinigames")
 						local atmHack = hacking and hacking:FindFirstChild("ATM Hack")
 						
-						if atmHack then
-							for _, v in pairs(atmHack:GetDescendants()) do
-								-- Rastreamos TODO lo que pueda cambiar
-								local currentState = ""
-								if v:IsA("GuiObject") then
-									currentState = tostring(v.Position) .. tostring(v.BackgroundColor3) .. tostring(v.BackgroundTransparency) .. tostring(v.Visible)
-									if v:IsA("ImageLabel") then currentState = currentState .. tostring(v.ImageTransparency) end
-									if v:IsA("TextLabel") then currentState = currentState .. v.Text end
-									
-									local stateKey = v:GetFullName()
-									if lastStates[stateKey] and lastStates[stateKey] ~= currentState then
-										warn("[Vape Detect] ¡Cambio en: " .. v.Name .. " (" .. v.ClassName .. ")!")
-										warn(" > Texto: " .. (v:IsA("TextLabel") and v.Text or "N/A"))
-										warn(" > BG Transp: " .. tostring(v.BackgroundTransparency))
+						if atmHack and atmHack.Visible then
+							local targetLabel = atmHack:FindFirstChild("Sequence1") or atmHack:FindFirstChild("Sequence2")
+							if targetLabel and targetLabel.Text ~= "" then
+								local targets = string.split(targetLabel.Text, " ")
+								
+								-- Buscamos todas las cajas de texto en la cuadrícula
+								for _, box in pairs(atmHack:GetDescendants()) do
+									if box:IsA("TextLabel") and box.Visible and #box.Text > 0 and box.Name ~= "Headline" and box.Name ~= "Bottomline" then
+										-- Verificamos si su "Background" (ImageLabel) está resaltado
+										local highlight = box.Parent:FindFirstChild("Background") or box:FindFirstChild("Background")
+										if highlight and highlight:IsA("ImageLabel") then
+											-- El highlight se detecta porque deja de ser transparente
+											if highlight.ImageTransparency < 0.5 or highlight.Visible == true then
+												-- Comparamos texto
+												for _, t in pairs(targets) do
+													if box.Text == t then
+														-- ¡ACIERTO!
+														game:GetService("VirtualInputManager"):SendMouseButtonEvent(0, 0, 0, true, game, 0)
+														task.wait(0.05)
+														game:GetService("VirtualInputManager"):SendMouseButtonEvent(0, 0, 0, false, game, 0)
+														task.wait(0.5) -- Esperar a la siguiente ronda
+														break
+													end
+												end
+											end
+										end
 									end
-									lastStates[stateKey] = currentState
 								end
 							end
 						end
-						task.wait(0.1)
+						task.wait(0.03) -- Máxima velocidad de escaneo
 					end
 				end)
 			end
