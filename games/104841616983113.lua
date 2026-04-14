@@ -8027,29 +8027,27 @@ run(function()
 						local atmHack = hacking and hacking:FindFirstChild("ATM Hack")
 						
 						if atmHack and atmHack.Visible then
-							-- 1. Obtenemos las palabras que el juego nos pide (Las de arriba)
 							local targetLabel = atmHack:FindFirstChild("Sequence1") or atmHack:FindFirstChild("Sequence2") or atmHack:FindFirstChild("Sequence3")
-							if targetLabel and targetLabel.Text ~= "" then
+							if targetLabel then
 								local targets = string.split(targetLabel.Text, " ")
 								
-								-- 2. Buscamos qué palabra de la cuadrícula tiene el "Highlight" en el background
 								for _, box in pairs(atmHack:GetDescendants()) do
+									-- Si encontramos el texto de una de las palabras objetivo...
 									if box:IsA("TextLabel") and box.Visible and #box.Text > 0 then
-										local frame = box.Parent
-										if frame:IsA("Frame") then
-											-- Detectamos el "Highlight" por opacidad (si el fondo es visible)
-											-- No importa el color, solo que el fondo no sea transparente
-											if frame.BackgroundTransparency < 0.5 then
-												-- 3. Si está resaltada, COMPARAMOS el contenido
-												for _, word in pairs(targets) do
-													if box.Text == word then
-														-- ¡ES LA PALABRA CORRECTA! Clicamos.
-														game:GetService("VirtualInputManager"):SendMouseButtonEvent(0, 0, 0, true, game, 0)
-														task.wait(0.05)
-														game:GetService("VirtualInputManager"):SendMouseButtonEvent(0, 0, 0, false, game, 0)
-														task.wait(0.3) -- Cooldown para el siguiente objetivo
-														break
-													end
+										for _, t in pairs(targets) do
+											if box.Text == t then
+												-- ESCUPE A LA CONSOLA LAS PROPIEDADES PARA VER QUÉ CAMBIA
+												-- (Solo una vez por segundo para no laguear)
+												local frame = box.Parent
+												warn("[Vape Debug] Palabra: " .. box.Text .. " | Transp: " .. tostring(frame.BackgroundTransparency or "N/A") .. " | Color: " .. tostring(frame.BackgroundColor3 or "N/A"))
+												
+												-- Lógica tentativa: Si el fondo NO es el negro/gris por defecto
+												if frame:IsA("Frame") and frame.BackgroundTransparency < 0.5 then
+													game:GetService("VirtualInputManager"):SendMouseButtonEvent(0, 0, 0, true, game, 0)
+													task.wait(0.05)
+													game:GetService("VirtualInputManager"):SendMouseButtonEvent(0, 0, 0, false, game, 0)
+													task.wait(0.3)
+													break
 												end
 											end
 										end
@@ -8057,7 +8055,7 @@ run(function()
 								end
 							end
 						end
-						task.wait(0.04) -- Escaneo rápido para no perder el highlight
+						task.wait(0.1)
 					end
 				end)
 			end
