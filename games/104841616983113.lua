@@ -7990,6 +7990,51 @@ run(function()
 			end
 		end
 	})
+end)
+
+run(function()
+	local AutoMinigame = {Enabled = false}
+	local Remote = game:GetService("ReplicatedStorage"):WaitForChild("Remote"):WaitForChild("PlayerFunc")
+	local BlackMarketItem = game:GetService("ReplicatedStorage"):WaitForChild("Stuff"):WaitForChild("Black Market"):WaitForChild("1"):WaitForChild("Decryption Circuit")
 	
+	-- Módulo para comprar el circuito
+	vape.Categories.World:CreateModule({
+		Name = "Buy Decryption Circuit",
+		Function = function(callback)
+			if callback then
+				pcall(function()
+					Remote:InvokeServer("purchase", {isRestaurant = false, item = BlackMarketItem})
+				end)
+				task.wait(0.1)
+				vape.Categories.World:GetModule("Buy Decryption Circuit"):Toggle() -- Se apaga solo tras comprar
+			end
+		end,
+		Tooltip = "Instantly buys the Decryption Circuit."
+	})
+
+	-- Módulo para resolver el minijuego (CON RASTREADOR)
+	AutoMinigame = vape.Categories.World:CreateModule({
+		Name = "Auto ATM Minigame",
+		Function = function(callback)
+			if callback then
+				task.spawn(function()
+					warn("[Vape Scan] Escaneando interfaces... Abre el minijuego ahora.")
+					while AutoMinigame.Enabled do
+						-- Escaneamos labels visibles para encontrar la palabra
+						for i, v in pairs(game:GetService("Players").LocalPlayer.PlayerGui:GetDescendants()) do
+							if v:IsA("TextLabel") and v.Visible and v.Text ~= "" and #v.Text > 1 then
+								-- Si el texto parece ser del hackeo, lo imprimimos para saber su nombre
+								if v.Parent.Name:match("Hack") or v.Name:match("Word") or v.Parent.Name:match("Game") then
+									print("[Vape Scan] Encontrado: " .. v:GetFullName() .. " | Texto: " .. v.Text)
+								end
+							end
+						end
+						task.wait(2)
+					end
+				end)
+			end
+		end,
+		Tooltip = "Automatically completes the ATM hacking minigame for you."
+	})
 end)
 	
