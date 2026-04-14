@@ -8077,7 +8077,7 @@ run(function()
 						end
 						warn("[Vape] God Mode Limpio. (Ignorando estados de personaje)")
 					end)
-				end
+				end)
 			end
 		end,
 		Tooltip = "Automatically completes the ATM hacking minigame for you."
