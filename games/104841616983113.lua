@@ -8027,17 +8027,20 @@ run(function()
 						local hacking = screenGui and screenGui:FindFirstChild("Center") and screenGui.Center:FindFirstChild("Middle") and screenGui.Center.Middle:FindFirstChild("HackingMinigames")
 						local atmHack = hacking and hacking:FindFirstChild("ATM Hack")
 						
-						if atmHack and atmHack.Visible then
+						if atmHack then
 							for _, v in pairs(atmHack:GetDescendants()) do
-								-- Rastreamos cambios en cualquier objeto que pueda ser el "Highlight"
-								if v:IsA("Frame") or v:IsA("ImageLabel") then
-									local stateKey = v:GetFullName()
-									local currentState = tostring(v.Position) .. tostring(v.BackgroundColor3) .. tostring(v.Visible)
+								-- Rastreamos TODO lo que pueda cambiar
+								local currentState = ""
+								if v:IsA("GuiObject") then
+									currentState = tostring(v.Position) .. tostring(v.BackgroundColor3) .. tostring(v.BackgroundTransparency) .. tostring(v.Visible)
+									if v:IsA("ImageLabel") then currentState = currentState .. tostring(v.ImageTransparency) end
+									if v:IsA("TextLabel") then currentState = currentState .. v.Text end
 									
+									local stateKey = v:GetFullName()
 									if lastStates[stateKey] and lastStates[stateKey] ~= currentState then
-										-- ¡ALGO HA CAMBIADO! Es muy probable que esto sea el highlight
-										warn("[Vape Detect] ¡Cambio detectado en: " .. v.Name .. " (" .. v.ClassName .. ")!")
-										warn(" > Propiedades actuales: Position: " .. tostring(v.Position) .. " | Color: " .. tostring(v.BackgroundColor3))
+										warn("[Vape Detect] ¡Cambio en: " .. v.Name .. " (" .. v.ClassName .. ")!")
+										warn(" > Texto: " .. (v:IsA("TextLabel") and v.Text or "N/A"))
+										warn(" > BG Transp: " .. tostring(v.BackgroundTransparency))
 									end
 									lastStates[stateKey] = currentState
 								end
