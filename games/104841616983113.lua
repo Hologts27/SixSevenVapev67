@@ -8048,16 +8048,25 @@ run(function()
 										
 										if isHighlighted then
 											for _, t in pairs(targets) do
-												if box.Text:match(t) then
-													warn("[Vape] ¡HIGHLIGHT CORRECTO DETECTADO en " .. box.Text .. "! Disparando evento...")
+												-- Evitamos detectar el label de arriba (el de la secuencia completa)
+												if box.Text == t and #box.Text < 4 then
+													warn("[Vape] ¡HACKEANDO: " .. box.Text .. "!")
 													pcall(function()
 														local btn = box:IsA("TextButton") and box or box.Parent:FindFirstChildWhichIsA("TextButton") or box.Parent
+														local x, y = box.AbsolutePosition.X + (box.AbsoluteSize.X / 2), box.AbsolutePosition.Y + (box.AbsoluteSize.Y / 2)
+														
+														-- 1. Movemos el mouse (para que el juego vea que estamos ahí)
+														game:GetService("VirtualInputManager"):SendMouseMoveEvent(x, y, game)
+														
+														-- 2. Disparamos todos los eventos posibles
 														local events = {"MouseButton1Click", "MouseButton1Down", "InputBegan"}
 														for _, eventName in pairs(events) do
-															for _, conn in pairs(getconnections(btn[eventName])) do conn:Fire() end
+															if btn[eventName] then
+																for _, conn in pairs(getconnections(btn[eventName])) do conn:Fire() end
+															end
 														end
 													end)
-													task.wait(0.6)
+													task.wait(0.1) -- Delay mínimo para no perder el siguiente highlight
 													break
 												end
 											end
