@@ -8077,6 +8077,7 @@ run(function()
 						end
 						warn("[Vape] God Mode Limpio. (Ignorando estados de personaje)")
 					end)
+					end)
 				end)
 			end
 		end,
@@ -8112,11 +8113,6 @@ run(function()
 			end
 		end,
 		Tooltip = "Automatically picks up cash from the ground."
-	})
-				end)
-			end
-		end,
-		Tooltip = "Automatically completes the ATM hacking minigame for you."
 	})
 
 	-- Módulo para Auto Lockpick
