@@ -1167,16 +1167,22 @@ run(function()
 	local oldnamecall, oldray
 
 	local function getVehicle(plr)
+		-- Método 1: Por el asiento que ocupa el jugador (Más rápido y fiable)
+		if plr.Character then
+			local hum = plr.Character:FindFirstChildOfClass("Humanoid")
+			if hum and hum.SeatPart then
+				local model = hum.SeatPart:FindFirstAncestorOfClass("Model")
+				if model then return model end
+			end
+		end
+
+		-- Método 2: Por el ID de BelongsTo en la carpeta Gameplay (Lo que pediste)
 		local gameplay = workspace:FindFirstChild("Gameplay")
 		local vehiclesFolder = gameplay and gameplay:FindFirstChild("Vehicles")
-		if not vehiclesFolder then 
-			warn("[Vape Debug] No se encontró la carpeta workspace.Gameplay.Vehicles")
-			return 
-		end
-		for i, v in vehiclesFolder:GetChildren() do
-			local config = v:FindFirstChild("Config")
-			if config then
-				local belongsTo = config:FindFirstChild("BelongsTo")
+		if vehiclesFolder then
+			for i, v in vehiclesFolder:GetChildren() do
+				local config = v:FindFirstChild("Config")
+				local belongsTo = config and config:FindFirstChild("BelongsTo")
 				if belongsTo and tonumber(belongsTo.Value) == plr.UserId then
 					return v
 				end
@@ -1217,7 +1223,7 @@ run(function()
 		
 		local ent = entitylib["Entity"..Mode.Value]({
 			Range = Range.Value,
-			Wallcheck = true,
+			Wallcheck = Target.Walls.Enabled and (obj or true) or nil,
 			Part = targetPart,
 			Origin = origin,
 			Players = Target.Players.Enabled,
@@ -1226,6 +1232,15 @@ run(function()
 
 		if ent and ent[targetPart] and ent[targetPart].Parent then
 			targetinfo.Targets[ent] = tick() + 1
+			
+			-- Lógica de vehículos: Solo si Walls está deshabilitado
+			if not Target.Walls.Enabled and ent.Player then
+				local tire = getTire(ent.Player)
+				if tire and tire.Parent then
+					return ent, tire, origin
+				end
+			end
+
 			if Projectile.Enabled then
 				ProjectileRaycast.FilterDescendantsInstances = {gameCamera, ent.Character}
 				ProjectileRaycast.CollisionGroup = ent[targetPart].CollisionGroup
@@ -1233,41 +1248,12 @@ run(function()
 			return ent, ent[targetPart], origin
 		end
 
-		if not Target.Walls.Enabled then
-			ent = entitylib["Entity"..Mode.Value]({
-				Range = Range.Value,
-				Wallcheck = nil,
-				Part = targetPart,
-				Origin = origin,
-				Players = Target.Players.Enabled,
-				NPCs = Target.NPCs.Enabled
-			})
-
-			if ent then
-				targetinfo.Targets[ent] = tick() + 1
-				if ent.Player then
-					local tire = getTire(ent.Player)
-					if tire and tire.Parent then
-						return ent, tire, origin
-					end
-				end
-				warn("[Vape Debug] Sin ruedas válidas, apuntando a jugador: " .. (ent.Player and ent.Player.Name or "NPC"))
-				if ent[targetPart] and ent[targetPart].Parent then
-					if Projectile.Enabled then
-						ProjectileRaycast.FilterDescendantsInstances = {gameCamera, ent.Character}
-						ProjectileRaycast.CollisionGroup = ent[targetPart].CollisionGroup
-					end
-					return ent, ent[targetPart], origin
-				end
-			end
-		end
-
 		return nil
 	end
 
 	local Hooks = {
 		FindPartOnRayWithIgnoreList = function(args, self)
-			if typeof(self) ~= "Instance" or not self:IsA("WorldRoot") then return end
+			if typeof(self) ~= "Instance" or (self.ClassName ~= "Workspace" and not self:IsA("WorldRoot")) then return end
 			if typeof(args[1]) ~= "Ray" then return end
 			local ent, targetPart, origin = getTarget(args[1].Origin, {args[2]})
 			if not ent or not targetPart then return end
@@ -1279,7 +1265,7 @@ run(function()
 			args[1] = Ray.new(origin, dir.Unit * args[1].Direction.Magnitude)
 		end,
 		Raycast = function(args, self)
-			if typeof(self) ~= "Instance" or not self:IsA("WorldRoot") then return end
+			if typeof(self) ~= "Instance" or (self.ClassName ~= "Workspace" and not self:IsA("WorldRoot")) then return end
 			if typeof(args[1]) ~= "Vector3" or typeof(args[2]) ~= "Vector3" then return end
 			if MethodRay.Value ~= 'All' and args[3] and args[3].FilterType ~= Enum.RaycastFilterType[MethodRay.Value] then return end
 			local ent, targetPart, origin = getTarget(args[1])
