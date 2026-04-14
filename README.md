@@ -22,6 +22,13 @@ This version (SixSevenVapev67) focuses on resolving critical stability issues pr
 - **Enhanced Executor Support**: Replaced direct focus calls with a safer detector, ensuring compatibility with executors that handle `iswindowactive` as a boolean.
 - **Validation Layers**: Added recursive instance checks for Target parts to prevent "Nil Access" errors during high-speed combat.
 
+## 🎮 Special Game Support
+- **San Aurie (104841616983113)**: 
+  - **Advanced Vehicle Targeting**: Intelligent Silent Aim that automatically detects player-owned vehicles.
+  - **Tire Prioritization**: Automatically targets `WheelCollision` hitboxes when "Ignore Walls" is enabled.
+  - **Smart Filtering**: Skips destroyed/transparent tires and switches back to the driver seamlessly.
+  - **Deep Seat Detection**: Instant identification of occupancy for zero-latency lock-on.
+
 ## Usage
 1. Download a high-quality scripting utility for Roblox.
 2. Execute the provided loadstring below.
