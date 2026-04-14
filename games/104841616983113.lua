@@ -1194,14 +1194,11 @@ run(function()
 	local function getTire(plr)
 		local vehicle = getVehicle(plr)
 		if vehicle then
-			warn("[Vape Debug] Vehículo de " .. plr.Name .. " encontrado: " .. vehicle.Name)
 			local tires = {}
 			for i, v in vehicle:GetDescendants() do
 				if v.Name == "WheelCollision" and v:IsA("BasePart") then
 					if v.Transparency < 0.5 then
 						table.insert(tires, v)
-					else
-						warn("[Vape Debug] Rueda " .. v.Parent.Name .. " está rota (Ignorada)")
 					end
 				end
 			end
@@ -1209,10 +1206,8 @@ run(function()
 				table.sort(tires, function(a, b)
 					return (a.Position - gameCamera.CFrame.Position).Magnitude < (b.Position - gameCamera.CFrame.Position).Magnitude
 				end)
-				warn("[Vape Debug] Apuntando a neumático de " .. plr.Name)
 				return tires[1]
 			end
-			warn("[Vape Debug] No se encontraron neumáticos 'WheelCollision' utilizables")
 		end
 		return nil
 	end
