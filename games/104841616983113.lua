@@ -8021,58 +8021,55 @@ run(function()
 					local lplr = game:GetService("Players").LocalPlayer
 					local PlayerGui = lplr:WaitForChild("PlayerGui")
 					
-					-- Auto ATM & Lockpick (HIJACK TOTAL - DIAGNÓSTICO)
+					-- Auto ATM & Lockpick (GOD MODE - ESTABLE)
 					task.spawn(function()
 						local PlayerFunc = game:GetService("ReplicatedStorage"):WaitForChild("Remote"):WaitForChild("PlayerFunc")
 						
-						local function applyHijack(t)
-							-- Buscamos cualquier función que parezca un minijuego
+						local function patchTable(t)
 							for name, func in pairs(t) do
 								local n = tostring(name):lower()
 								if type(func) == "function" and (n:find("minigame") or n:find("lock") or n:find("hack")) then
 									local old = t[name]
 									t[name] = function(...)
 										if (AutoMinigame.Enabled and (n:find("hack") or n:find("minigame"))) or (AutoLockpick.Enabled and (n:find("lock") or n:find("minigame"))) then
-											warn("[Vape] ¡INTERCEPTADO INTERNAMENTE! Nombre: "..tostring(name))
+											warn("[Vape] ¡INTERCEPTADO! Victoria en: "..tostring(name))
 											return true
 										end
 										return old(...)
 									end
-									warn("[Vape] Función interceptada: "..tostring(name))
 								end
 							end
 						end
 
-						local function scan()
-							local found = false
-							for _, t in pairs(getgc(true)) do
-								if type(t) == "table" and rawget(t, "hackingMinigame") then
-									applyHijack(t)
-									found = true
+						-- Hook de Metatabla para atrapar al juego cuando asigne su función
+						local mt = getrawmetatable(PlayerFunc)
+						local oldNewIndex = mt.__newindex
+						setreadonly(mt, false)
+						mt.__newindex = newcclosure(function(self, key, value)
+							if self == PlayerFunc and key == "OnClientInvoke" and type(value) == "function" then
+								local original = value
+								value = function(method, ...)
+									local m = tostring(method):lower()
+									warn("[Vape DEBUG] El servidor pidió: "..tostring(method))
+									if (AutoMinigame.Enabled or AutoLockpick.Enabled) and (m:find("minigame") or m:find("lock") or m:find("hack")) then
+										warn("[Vape] ¡BLOQUEO DIRECTO EXITOSO!")
+										return true
+									end
+									return original(method, ...)
 								end
 							end
-							
-							-- MEGA-HOOK: Si el Hijack de tabla falla, interceptamos el canal de comunicación directamente
-							local oldCallback = PlayerFunc.OnClientInvoke
-							PlayerFunc.OnClientInvoke = function(method, ...)
-								local m = tostring(method):lower()
-								warn("[Vape DEBUG] El servidor llamó a: "..tostring(method))
-								
-								if (AutoMinigame.Enabled or AutoLockpick.Enabled) and (m:find("minigame") or m:find("lock") or m:find("hack")) then
-									warn("[Vape] ¡BLOQUEO DIRECTO EXITOSO! Evitando " .. tostring(method))
-									return true
-								end
-								
-								if oldCallback then
-									return oldCallback(method, ...)
-								end
-							end
-							
-							return found
-						end
+							return oldNewIndex(self, key, value)
+						end)
+						setreadonly(mt, true)
 
-						warn("[Vape] Iniciando Sonda de Diagnóstico...")
-						scan()
+						-- Escaneo inicial por si el juego ya cargó
+						for _, t in pairs(getgc(true)) do
+							if type(t) == "table" and rawget(t, "hackingMinigame") then
+								patchTable(t)
+							end
+						end
+						
+						warn("[Vape] God Mode (ATM + Lockpick) activo y sin errores.")
 					end)
 				end)
 			end
