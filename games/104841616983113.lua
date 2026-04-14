@@ -8012,24 +8012,42 @@ run(function()
 		Tooltip = "Instantly buys the Decryption Circuit."
 	})
 
-	-- Módulo para resolver el minijuego (CON RASTREADOR)
+	-- Módulo para resolver el minijuego (AUTO-SOLVER)
 	AutoMinigame = vape.Categories.World:CreateModule({
 		Name = "Auto ATM Minigame",
 		Function = function(callback)
 			if callback then
 				task.spawn(function()
-					warn("[Vape Scan] Escaneando interfaces... Abre el minijuego ahora.")
+					local lplr = game:GetService("Players").LocalPlayer
+					local PlayerGui = lplr:WaitForChild("PlayerGui")
+					
 					while AutoMinigame.Enabled do
-						-- Escaneamos labels visibles para encontrar la palabra
-						for i, v in pairs(game:GetService("Players").LocalPlayer.PlayerGui:GetDescendants()) do
-							if v:IsA("TextLabel") and v.Visible and v.Text ~= "" and #v.Text > 1 then
-								-- Si el texto parece ser del hackeo, lo imprimimos para saber su nombre
-								if v.Parent.Name:match("Hack") or v.Name:match("Word") or v.Parent.Name:match("Game") then
-									print("[Vape Scan] Encontrado: " .. v:GetFullName() .. " | Texto: " .. v.Text)
+						-- Localizar la GUI de Hacking
+						local screenGui = PlayerGui:FindFirstChild("ScreenGui")
+						local hacking = screenGui and screenGui:FindFirstChild("Center") and screenGui.Center:FindFirstChild("Middle") and screenGui.Center.Middle:FindFirstChild("HackingMinigames")
+						
+						if hacking then
+							local atmHack = hacking:FindFirstChild("ATM Hack")
+							local terminalHack = hacking:FindFirstChild("Terminal Hack")
+							
+							-- Lógica para ATM Hack (Click anywhere when highlight matches)
+							if atmHack and atmHack.Visible and atmHack.GroupTransparency < 0.5 then
+								local headline = atmHack:FindFirstChild("Headline")
+								if headline and headline.Text == "CLICK ANYWHERE" then
+									-- Simulamos un click enviando un input al juego
+									game:GetService("VirtualInputManager"):SendMouseButtonEvent(0, 0, 0, true, game, 0)
+									task.wait(0.1)
+									game:GetService("VirtualInputManager"):SendMouseButtonEvent(0, 0, 0, false, game, 0)
+									task.wait(0.5) -- Evitar spam
 								end
 							end
+							
+							-- Lógica para Terminal Hack (Próximamente si lo necesitas)
+							if terminalHack and terminalHack.Visible and terminalHack.GroupTransparency < 0.5 then
+								-- Aquí podríamos añadir la lógica de secuencias
+							end
 						end
-						task.wait(2)
+						task.wait(0.1)
 					end
 				end)
 			end
