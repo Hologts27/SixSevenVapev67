@@ -8275,13 +8275,14 @@ run(function()
 		end
 	end
 
-	local SetSafezoneMod = vape.Categories.World:CreateModule({
+	local SetSafezoneMod
+	SetSafezoneMod = vape.Categories.World:CreateModule({
 		Name = "Set AutoRob Safezone",
 		Function = function(callback)
 			if callback then
 				local root = lplr.Character and lplr.Character:FindFirstChild("HumanoidRootPart")
 				if root then SafezonePos = root.CFrame warn("[Vape] Zona segura guardada.") end
-				task.spawn(function() if SetSafezoneMod.ToggleButton then SetSafezoneMod.ToggleButton(false) end end)
+				task.spawn(function() if SetSafezoneMod and SetSafezoneMod.ToggleButton then SetSafezoneMod.ToggleButton(false) end end)
 			end
 		end,
 		Tooltip = "Saves your current position as the safe spot."
