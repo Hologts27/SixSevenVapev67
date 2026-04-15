@@ -8275,48 +8275,71 @@ run(function()
 					return
 				end
 
-				warn("[Vape] Iniciando escaneo inteligente de objetivos...")
+				warn("[Vape] Iniciando escaneo NUCLEAR de objetivos...")
 				task.spawn(function()
 					while AutoFarmer.Enabled do
 						local foundRobbable = false
-						local searchRoots = {workspace:FindFirstChild("World"), workspace:FindFirstChild("Gameplay"), workspace}
+						local lplr = game:GetService("Players").LocalPlayer
+						
+						-- Escaneamos TODO el mapa (World y Gameplay son prioridades)
+						local searchFolders = {
+							workspace:FindFirstChild("World"),
+							workspace:FindFirstChild("Gameplay"),
+							workspace
+						}
 
-						for _, rootObj in pairs(searchRoots) do
-							if not rootObj or foundRobbable then continue end
+						for _, root in pairs(searchFolders) do
+							if not root or foundRobbable then continue end
 							
-							for _, p in pairs(rootObj:GetDescendants()) do
+							for _, p in pairs(root:GetDescendants()) do
 								if not AutoFarmer.Enabled or foundRobbable then break end
 								
 								if p:IsA("ProximityPrompt") then
-									local actionText = p.ActionText or ""
-									local objectName = p.Parent.Name:lower()
+									local act = (p.ActionText or ""):lower()
+									local obj = (p.ObjectText or ""):lower()
+									local pName = p.Parent.Name:lower()
 									
-									-- Detectamos si es algo robable (ATM o texto Rob)
-									if actionText:find("Rob") or objectName:find("atm") then
-										-- Priorizamos la tecla F o que sea expresamente para Robar
-										if p.KeyboardKeyCode == Enum.KeyCode.F or actionText:find("Rob") then
-											foundRobbable = true
+									-- FILTRO AGRESIVO: Si dice Robar, Hacker, ATM, Cajero, o es la tecla F en un ATM
+									if act:find("rob") or act:find("hack") or obj:find("atm") or pName:find("atm") or obj:find("cajero") then
+										
+										-- Verificamos que sea el de robar (normalmente F o tecla de acción especial)
+										-- Si el prompt principal es E pero hay uno secundario F, vamos a por el F
+										if p.KeyboardKeyCode == Enum.KeyCode.F or act:find("rob") or act:find("hack") then
+											
 											local target = p.Parent:IsA("Model") and p.Parent or p.Parent.Parent
-											warn("[Vape] Objetivo encontrado: " .. target.Name)
+											if not target:IsA("BasePart") and not target:IsA("Model") then continue end
+											
+											foundRobbable = true
+											warn("[Vape] ¡OBJETIVO DETECTADO!: " .. target.Name .. " en " .. target:GetFullName())
 
-											local char = lplr.Character
-											if char and char:FindFirstChild("HumanoidRootPart") then
-												-- Gestión de circuitos
-												if not hasCircuit() then buyCircuit() end
-												if not hasCircuit() then 
-													warn("[Vape] Sin circuitos, buscando otro...")
-													foundRobbable = false
-													continue 
+											local rootChar = lplr.Character and lplr.Character:FindFirstChild("HumanoidRootPart")
+											if rootChar then
+												-- Gestión de circuitos (comprar si no hay)
+												if not hasCircuit() then
+													warn("[Vape] No tengo circuito, intentando comprar...")
+													buyCircuit()
+													task.wait(1)
 												end
 
-												-- Ejecución del robo
-												char:PivotTo(target:GetPivot() * CFrame.new(0, 0, -5))
-												task.wait(0.5)
-												_G.firePrompt(p)
-												task.wait(4) -- Espera del minijuego
+												-- Intento de TP con pcall para seguridad
+												local status, err = pcall(function()
+													warn("[Vape] Teletransportando a objetivo...")
+													lplr.Character:PivotTo(target:GetPivot() * CFrame.new(0, 0, -5))
+													task.wait(0.5)
+													
+													warn("[Vape] Ejecutando interacción...")
+													_G.firePrompt(p)
+													
+													task.wait(4) -- Espera de seguridad
+													
+													warn("[Vape] Regresando a zona segura.")
+													lplr.Character:PivotTo(SafezonePos)
+												end)
 												
-												char:PivotTo(SafezonePos)
-												warn("[Vape] Robo completado, regresando.")
+												if not status then
+													warn("[Vape] ERROR EN TP: " .. tostring(err))
+												end
+												
 												task.wait(2)
 											end
 										end
@@ -8326,6 +8349,7 @@ run(function()
 						end
 
 						if not foundRobbable then
+							-- Si no encontró nada, bajamos la agresividad un poco para no laguear
 							task.wait(2)
 						end
 						task.wait(0.5)
@@ -8333,7 +8357,7 @@ run(function()
 				end)
 			end
 		end,
-		Tooltip = "Smart scanner that finds and robs anything with a 'Rob' prompt."
+		Tooltip = "Aggressive scanner that finds and robs anything remotely related to ATMs or Banking."
 	})
 
 	-- Módulo para Auto Lockpick
