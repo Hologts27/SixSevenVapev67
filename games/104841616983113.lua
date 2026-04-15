@@ -8321,18 +8321,18 @@ run(function()
 							end
 							task.wait(5)
 						else
-							-- 2. RADAR DE PRECISIÓN V24 (StartHack)
+							-- 2. RADAR DE PRECISIÓN V25 (StartHack + Filter)
 							local targetPrompt, targetPart = nil, nil
 							pcall(function()
 								local entities = workspace:FindFirstChild("Gameplay") and workspace.Gameplay:FindFirstChild("Entities")
-								local searchArea = entities or workspace -- Si no está la carpeta, busca en todo
+								local searchArea = entities or workspace
 								
 								for _, v in pairs(searchArea:GetDescendants()) do
 									if v:IsA("ProximityPrompt") and v.Enabled then
-										local pName = v.Parent.Name
-										if pName == "StartHack" or v.Name == "Mission" then
-											if not blacklist[v.Parent] then
-												vape:CreateNotification("AutoRob", "ATM Disponible!", 2)
+										local objText = v.ObjectText or ""
+										-- Solo queremos ATMs que usen el circuito de decodificación
+										if objText:find("Decryption") or v.Parent.Name == "StartHack" then
+											if not blacklist[v.Parent] and not v.Parent.Name:find("NPC") then
 												targetPrompt = v
 												targetPart = v.Parent
 												break
@@ -8352,11 +8352,19 @@ run(function()
 								local root = char and char:FindFirstChild("HumanoidRootPart")
 								
 								if root then
-									vape:CreateNotification("AutoFarmer", "Objetivo Localizado!", 2)
+									vape:CreateNotification("AutoRob", "ATM Válido Detectado!", 2)
 									
-									-- Preparación y TP
-									char:PivotTo(targetPart:GetPivot() * CFrame.new(0, 3.5, 0))
-									task.wait(0.7)
+									-- TP Seguro (Maneja Modelos, Partes y Attachments)
+									local targetCF = nil
+									if targetPart:IsA("Model") or targetPart:IsA("BasePart") then
+										targetCF = targetPart:GetPivot()
+									elseif targetPart:IsA("Attachment") then
+										targetCF = CFrame.new(targetPart.WorldPosition)
+									end
+
+									if targetCF then
+										char:PivotTo(targetCF * CFrame.new(0, 3.5, 0))
+										task.wait(0.7)
 									
 									local startOk = false
 									pcall(function()
