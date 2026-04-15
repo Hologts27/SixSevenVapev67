@@ -8163,31 +8163,28 @@ run(function()
 		end
 	end
 
-	-- Función de respaldo para ProximityPrompts (Global)
+	-- Función de respaldo para ProximityPrompts (Global - SERVER FRIENDLY)
 	_G.firePrompt = function(p)
 		if not p then return end
-		local oldHold = p.HoldDuration
-		p.HoldDuration = 0 -- Forzar interacción instantánea
 		
 		-- 1. Método Exploit
 		if fireproximityprompt then fireproximityprompt(p) end
 		
-		-- 2. Método Simulación Teclado (Fuerza Bruta)
+		-- 2. Simulación de Pulsado Real
 		pcall(function()
 			local vim = game:GetService("VirtualInputManager")
 			local key = p.KeyboardKeyCode
+			local hold = p.HoldDuration or 0
+			
 			vim:SendKeyEvent(true, key, false, game)
-			task.wait(0.05)
+			task.wait(hold + 0.1) -- Esperamos lo que pida el servidor
 			vim:SendKeyEvent(false, key, false, game)
 		end)
 
 		-- 3. Método Señales Internas
 		p:InputHoldBegin()
-		task.wait(0.05)
+		task.wait((p.HoldDuration or 0) + 0.1)
 		p:InputHoldEnd()
-		
-		-- Restaurar (opcional)
-		task.delay(1, function() p.HoldDuration = oldHold end)
 	end
 
 	-- Módulo para God Mode (Health Shield)
@@ -8401,11 +8398,29 @@ run(function()
 											task.wait(1)
 											foundATM = false 
 										else
-											warn("[Vape] ¡Hackeando desde los -8 metros!")
+											warn("[Vape] Iniciando Atracción Magnética del Cajero...")
 											blacklist[obj] = tick()
 											
-											-- INTERACCIÓN DIRECTA (Sin tocar la cámara)
-											_G.firePrompt(robPrompt)
+											-- 1. Identificamos la pieza que tiene el prompt
+											local interactPart = robPrompt.Parent
+											if interactPart:IsA("BasePart") or interactPart:IsA("Model") then
+												local oldCF = interactPart:GetPivot()
+												
+												-- 2. TRAEMOS EL CAJERO A NUESTROS PIES (Localmente)
+												interactPart:PivotTo(root.CFrame * CFrame.new(0, 0, -2))
+												task.wait(0.2)
+												
+												-- 3. INTERACTUAMOS A DISTANCIA CERO
+												_G.firePrompt(robPrompt)
+												task.wait(0.2)
+												
+												-- 4. DEVOLVEMOS EL CAJERO A SU SITIO
+												interactPart:PivotTo(oldCF)
+											else
+												-- Fallback si no es una pieza
+												_G.firePrompt(robPrompt)
+											end
+											
 											task.wait(5.5) 
 											
 											-- VOLVER
