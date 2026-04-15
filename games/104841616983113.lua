@@ -8104,12 +8104,16 @@ run(function()
 			if callback then
 				task.spawn(function()
 					while AutoCash.Enabled do
-						-- Escaneamos cualquier objeto CashDrop en el mundo
 						for _, v in pairs(workspace:GetDescendants()) do
-							if v.Name == "CashDrop" and v:IsA("ProximityPrompt") and v.Enabled then
-								firePrompt(v)
-								-- warn("[Vape] Dinero recolectado vía Prompt.")
-								task.wait(0.1)
+							if v.Name == "CashDrop" then
+								-- Intentar recolectar vía Remote Function (visto en RemoteSpy)
+								game:GetService("ReplicatedStorage").Remote.PlayerFunc:InvokeServer("talkToMission", v)
+								
+								-- Intentar recolectar vía Prompt por si acaso
+								local prompt = v:FindFirstChildWhichIsA("ProximityPrompt", true)
+								if prompt and prompt.Enabled then
+									firePrompt(prompt)
+								end
 							end
 						end
 						task.wait(0.5)
@@ -8151,37 +8155,45 @@ run(function()
 					return
 				end
 
+				warn("[Vape] Iniciando escaneo de ATMs...")
 				task.spawn(function()
 					while AutoFarmer.Enabled do
-						-- Escaneo dinámico de ATMs por si la ruta cambió
 						local foundRobbable = false
 						for _, obj in pairs(workspace:GetDescendants()) do
 							if not AutoFarmer.Enabled then break end
 							
-							-- Buscamos el modelo ATM que tenga el prompt de Mission
-							if obj.Name == "ATM" and obj:IsA("Model") then
+							-- Búsqueda agresiva: cualquier objeto que contenga "ATM"
+							if obj.Name:upper():find("ATM") then
 								local prompt = obj:FindFirstChild("Mission", true) or obj:FindFirstChildWhichIsA("ProximityPrompt", true)
 								
 								if prompt and prompt.Enabled and (prompt.Name == "Mission" or prompt.ActionText:find("Rob")) then
 									foundRobbable = true
 									local root = lplr.Character and lplr.Character:FindFirstChild("HumanoidRootPart")
 									if root then
-										warn("[Vape] Yendo a: " .. obj.Name)
-										root.CFrame = obj:GetModelCFrame() * CFrame.new(0, 0, -5)
-										task.wait(0.5)
+										warn("[Vape] Objetivo encontrado: " .. obj.Name)
+										warn("[Vape] Teletransportando...")
 										
-										firePrompt(prompt)
-										task.wait(3.5) -- Más tiempo para asegurar el loot
-										
-										root.CFrame = SafezonePos
-										task.wait(3)
+										-- TP al modelo
+										local targetPos = obj:IsA("Model") and obj:GetModelCFrame() or (obj:IsA("BasePart") and obj.CFrame or nil)
+										if targetPos then
+											root.CFrame = targetPos * CFrame.new(0, 0, -4)
+											task.wait(0.5)
+											
+											warn("[Vape] Interactuando...")
+											firePrompt(prompt)
+											task.wait(3.5) -- Tiempo para ganar y recoger
+											
+											warn("[Vape] Volviendo a zona segura.")
+											root.CFrame = SafezonePos
+											task.wait(3)
+										end
 									end
 								end
 							end
 						end
 
 						if not foundRobbable then
-							-- warn("[Vape] Esperando ATMs...")
+							-- warn("[Vape] Buscando cajeros activos...")
 							task.wait(5)
 						end
 						task.wait(0.5)
@@ -8189,7 +8201,7 @@ run(function()
 				end)
 			end
 		end,
-		Tooltip = "TP Robber for ATMs."
+		Tooltip = "Teleports to any ATM and robs it automatically."
 	})
 
 	-- Módulo para Auto Lockpick
