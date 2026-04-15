@@ -8102,52 +8102,43 @@ run(function()
 			if callback then
 				local entities = workspace:FindFirstChild("Gameplay") and workspace.Gameplay:FindFirstChild("Entities")
 				
-				local function collect(v)
-					if not AutoCash.Enabled then return end
-					for _, item in pairs(v:GetDescendants()) do
-						if item.Name == "_Interaction" then
-							task.spawn(function()
-								local lplr = game:GetService("Players").LocalPlayer
-								local char = lplr.Character
-								local root = char and char:FindFirstChild("HumanoidRootPart")
-								
-								if root then
-									-- Guardamos posición original
-									local oldPos = root.CFrame
-									
-									-- Flash TP para bypass de distancia
-									char:PivotTo(item:GetPivot())
-									task.wait(0.05)
-									
-									-- Enviamos las señales exactas del espía
-									pcall(function()
-										game:GetService("ReplicatedStorage").Remote.PlayerEvent:FireServer("interacted")
-										game:GetService("ReplicatedStorage").Remote.PlayerFunc:InvokeServer("talkToMission", item)
-									end)
-									
-									task.wait(0.05)
-									-- Volvemos al sitio original
-									char:PivotTo(oldPos)
+				task.spawn(function()
+					while AutoCash.Enabled do
+						local lplr = game:GetService("Players").LocalPlayer
+						local char = lplr.Character
+						local root = char and char:FindFirstChild("HumanoidRootPart")
+						
+						if root then
+							local gameplayFold = workspace:FindFirstChild("Gameplay")
+							local entities = gameplayFold and gameplayFold:FindFirstChild("Entities")
+							
+							if entities then
+								for _, v in pairs(entities:GetChildren()) do
+									for _, item in pairs(v:GetDescendants()) do
+										if item.Name == "_Interaction" then
+											-- Comprobamos si el dinero está cerca de nosotros (15 studs)
+											local dist = (item:GetPivot().Position - root.Position).Magnitude
+											if dist < 15 then
+												pcall(function()
+													-- Mandamos las señales que interceptamos con el espía
+													game:GetService("ReplicatedStorage").Remote.PlayerEvent:FireServer("interacted")
+													game:GetService("ReplicatedStorage").Remote.PlayerFunc:InvokeServer("talkToMission", item)
+													-- Fallback por si acaso
+													local prompt = item:FindFirstChildOfClass("ProximityPrompt")
+													if prompt then _G.firePrompt(prompt) end
+												end)
+											end
+										end
+									end
 								end
-							end)
-							break
+							end
 						end
+						task.wait(0.1) -- Escaneo súper rápido
 					end
-				end
-
-				-- Recoger los que ya están en el mapa
-				if entities then
-					for _, v in pairs(entities:GetChildren()) do collect(v) end
-					-- Escuchar cuando caiga dinero nuevo
-					local conn = entities.ChildAdded:Connect(collect)
-					task.spawn(function()
-						while AutoCash.Enabled do task.wait(1) end
-						conn:Disconnect()
-					end)
-				end
+				end)
 			end
 		end,
-		Tooltip = "Instant Magnet: Picks up cash the millisecond it touches the ground."
+		Tooltip = "Turbo Collect: Automatically sucks up nearby cash without moving."
 	})
 
 	-- Función para verificar si tenemos el circuito
@@ -8305,11 +8296,18 @@ run(function()
 					return nil
 				end
 
-				-- Función para verificar cooldown global
+				-- Función para verificar cooldown global (FIXED TYPE ERROR)
 				local function onGlobalCooldown()
 					local var = game:GetService("ReplicatedStorage"):FindFirstChild("Variables")
 					local cooldown = var and var:FindFirstChild("RobberyAntiSpamCooldown")
-					return cooldown and cooldown.Value > 0
+					if not cooldown then return false end
+					
+					-- Si es Booleano, lo usamos tal cual
+					if typeof(cooldown.Value) == "boolean" then
+						return cooldown.Value
+					end
+					-- Si es Número, comprobamos si es > 0
+					return tonumber(cooldown.Value) and tonumber(cooldown.Value) > 0
 				end
 
 				task.spawn(function()
