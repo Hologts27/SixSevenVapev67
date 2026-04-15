@@ -8416,43 +8416,35 @@ run(function()
 						-- Escaneamos TODOS los descendientes del juego
 						for _, v in pairs(workspace:GetDescendants()) do
 							if v.Name == "StartHack" and not blacklist[v] then
-								-- Buscamos el ATM más cercano (EXACTO y excluyendo personajes)
-								local foundNearATM = false
-								local interactive = workspace:FindFirstChild("World") and workspace.World:FindFirstChild("Interactive")
-								
-								if interactive then
-									for _, obj in pairs(interactive:GetChildren()) do
-										if obj.Name == "ATM" and (v:GetPivot().Position - obj:GetPivot().Position).Magnitude < 10 then
-											foundNearATM = true
-											break
-										end
-									end
-								end
-								
-								if foundNearATM then
-									targetPart = v
+						-- 3. Búsqueda de ATM y Hackeo Ciego
+						local targetATM = nil
+						local interactive = workspace:FindFirstChild("World") and workspace.World:FindFirstChild("Interactive")
+						
+						if interactive then
+							for _, obj in pairs(interactive:GetChildren()) do
+								if obj.Name == "ATM" and not blacklist[obj] then
+									targetATM = obj
 									break
 								end
 							end
 						end
 
-						if targetPart then
+						if targetATM then
 							local lplr = game:GetService("Players").LocalPlayer
 							local char = lplr.Character
 							local root = char and char:FindFirstChild("HumanoidRootPart")
 							
 							if root then
-								warn("[Vape] ¡StartHack localizado! Viajando...")
+								warn("[Vape] Objetivo ATM fijado: Viajando...")
 								
-								-- Preparación Express
+								-- Preparación y Vuelo
 								if not hasCircuit() then
 									local item = getBlackMarketItem()
 									if item then game:GetService("ReplicatedStorage").Remote.PlayerFunc:InvokeServer("purchase", {isRestaurant = false, item = item}) task.wait(0.5) end
 								end
 								game:GetService("ReplicatedStorage").Remote.PlayerEvent:FireServer("humState", 0)
 
-								-- Teletransporte y Robo
-								char:PivotTo(targetPart:GetPivot())
+								char:PivotTo(targetATM:GetPivot())
 								
 								local bv = Instance.new("BodyVelocity")
 								bv.Velocity = Vector3.new(0, 0, 0)
@@ -8463,23 +8455,26 @@ run(function()
 									for _, v in pairs(char:GetDescendants()) do if v:IsA("BasePart") then v.CanCollide = false end end
 								end)
 
-								-- Ejecución Directa
+								-- 4. INTENTO DE HACKEO (Ciego + Búsqueda Local)
+								task.wait(0.5)
+								local realButton = targetATM:FindFirstChild("StartHack", true) or workspace:FindFirstChild("StartHack", true)
+								
 								pcall(function()
 									game:GetService("ReplicatedStorage").Remote.PlayerEvent:FireServer("interacted")
 									task.wait(0.3)
-									game:GetService("ReplicatedStorage").Remote.PlayerFunc:InvokeServer("talkToMission", targetPart)
+									-- Si no encontramos el botón, probamos a pasarle el ATM mismo (A veces el servidor lo acepta)
+									game:GetService("ReplicatedStorage").Remote.PlayerFunc:InvokeServer("talkToMission", realButton or targetATM)
 								end)
 								
-								blacklist[targetPart] = tick()
+								blacklist[targetATM] = tick()
 								task.wait(8.5)
 								
-								-- Limpieza
 								cleanUpFarmer()
 								char:PivotTo(SafezonePos)
 								task.wait(2)
 							end
 						else
-							warn("[Vape] No hay StartHacks disponibles. Reescaneando en 5s...")
+							warn("[Vape] Esperando cajeros disponibles...")
 							task.wait(5)
 						end
 						task.wait(0.5)
