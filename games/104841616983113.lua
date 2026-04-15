@@ -8347,22 +8347,25 @@ run(function()
 											end
 										end
 
-										-- 2. Teletransporte al objetivo
+										-- 2. Teletransporte al objetivo (POR DEBAJO DEL SUELO)
 										warn("[Vape] Yendo a ATM: " .. obj:GetFullName())
-										char:PivotTo(obj:GetPivot() * CFrame.new(0, 0, -2))
+										char:PivotTo(obj:GetPivot() * CFrame.new(0, -7, 0)) -- -7 studs en el eje Y (abajo)
 										task.wait(1.2) 
 
-										-- 3. ESCANEO DE PROXIMIDAD
+										-- 3. ESCANEO DE PROXIMIDAD Y MODIFICACIÓN DE RANGO
 										local robPrompt = nil
 										for _, p in pairs(workspace:GetDescendants()) do
 											if p:IsA("ProximityPrompt") then
 												local parent = p.Parent
 												local pPos = (parent:IsA("PVInstance") and parent:GetPivot().Position) or (parent:IsA("Attachment") and parent.WorldPosition)
 												
-												if pPos and (pPos - root.Position).Magnitude < 10 then
+												if pPos and (pPos - root.Position).Magnitude < 15 then
 													local text = (p.ActionText or ""):lower()
 													if p.KeyboardKeyCode == Enum.KeyCode.F or text:find("hack") or text:find("rob") then
 														robPrompt = p
+														-- PODER DE RANGO: Hackeamos el botón para poder pulsarlo desde abajo
+														p.MaxActivationDistance = 40
+														p.RequiresLineOfSight = false
 														break
 													end
 												end
@@ -8377,7 +8380,7 @@ run(function()
 											task.wait(1)
 											foundATM = false 
 										else
-											warn("[Vape] ¡Hackeando!")
+											warn("[Vape] ¡Hackeando desde las sombras!")
 											blacklist[obj] = tick()
 											_G.firePrompt(robPrompt)
 											task.wait(5) 
