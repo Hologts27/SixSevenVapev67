@@ -8297,7 +8297,34 @@ run(function()
 				warn("[Vape] Iniciando Auto ATM Farmer V3 (Modo Parásito)...")
 				local blacklist = {}
 				
-				-- Buffear ATMs al iniciar
+				-- 1. Funciones de Apoyo (Inventario y Cooldown)
+				local function getBlackMarketItem()
+					local stuff = game:GetService("ReplicatedStorage"):FindFirstChild("Stuff")
+					if stuff then
+						for _, v in pairs(stuff:GetDescendants()) do
+							if v.Name:find("Decryption") and v.Name:find("Circuit") then return v end
+						end
+					end
+					return nil
+				end
+
+				local function hasCircuit()
+					local char = game:GetService("Players").LocalPlayer.Character
+					if char and char:FindFirstChild("Decryption Circuit") then return true end
+					local bpack = game:GetService("Players").LocalPlayer:FindFirstChild("Backpack")
+					if bpack and bpack:FindFirstChild("Decryption Circuit") then return true end
+					return false
+				end
+
+				local function onGlobalCooldown()
+					local var = game:GetService("ReplicatedStorage"):FindFirstChild("Variables")
+					local cooldown = var and var:FindFirstChild("RobberyAntiSpamCooldown")
+					if not cooldown then return false end
+					if typeof(cooldown.Value) == "boolean" then return cooldown.Value end
+					return tonumber(cooldown.Value) and tonumber(cooldown.Value) > 0
+				end
+
+				-- 2. Radar de ATMs
 				local function buffATMs()
 					local folder = workspace:FindFirstChild("World")
 					if folder then folder = folder:FindFirstChild("Interactive") end
