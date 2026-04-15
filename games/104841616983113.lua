@@ -8307,32 +8307,20 @@ run(function()
 
 				task.spawn(function()
 					while AutoFarmer.Enabled do
-						local pCount = 0
-						pcall(function()
-							local teams = game:GetService("Teams")
-							local pol = teams and teams:FindFirstChild("Police")
-							pCount = pol and #pol:GetPlayers() or 0
-						end)
+							-- 1. Check de Policía (DESACTIVADO PARA VALIDAR RADAR)
+							local pCount = 3 -- Simulación de seguridad
 
-						if pCount < 3 then
-							if tick() - lastPoliceWarn > 30 then
-								vape:CreateNotification("Pausa: Seguridad", "Faltan oficiales ("..pCount.."/3)", 3)
-								lastPoliceWarn = tick()
-							end
-							task.wait(5)
-						else
-							-- 2. RADAR DE PRECISIÓN V25 (StartHack + Filter)
+							-- 2. RADAR DE ESPECTRO COMPLETO V28
 							local targetPrompt, targetPart = nil, nil
 							pcall(function()
-								local entities = workspace:FindFirstChild("Gameplay") and workspace.Gameplay:FindFirstChild("Entities")
-								local searchArea = entities or workspace
-								
-								for _, v in pairs(searchArea:GetDescendants()) do
+								for _, v in pairs(workspace:GetDescendants()) do
 									if v:IsA("ProximityPrompt") and v.Enabled then
-										local objText = v.ObjectText or ""
-										-- Solo queremos ATMs que usen el circuito de decodificación
-										if objText:find("Decryption") or v.Parent.Name == "StartHack" then
-											if not blacklist[v.Parent] and not v.Parent.Name:find("NPC") then
+										local txt = (v.ActionText .. v.ObjectText .. v.Parent.Name):lower()
+										
+										-- Criterio de Búsqueda Flexible
+										if txt:find("hack") or txt:find("decryption") or txt:find("starthack") then
+											if not blacklist[v.Parent] and not txt:find("npc") then
+												-- warn("[Vape] Objetivo potencial visto: " .. v.Parent.Name)
 												targetPrompt = v
 												targetPart = v.Parent
 												break
