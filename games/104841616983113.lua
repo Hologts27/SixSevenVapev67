@@ -8382,8 +8382,23 @@ run(function()
 										else
 											warn("[Vape] ¡Hackeando desde las sombras!")
 											blacklist[obj] = tick()
+											
+											-- ACTIVAR NOCLIP & ANCLAJE
+											local noclipConn
+											noclipConn = game:GetService("RunService").Stepped:Connect(function()
+												if not AutoFarmer.Enabled then noclipConn:Disconnect() return end
+												for _, v in pairs(char:GetDescendants()) do
+													if v:IsA("BasePart") then v.CanCollide = false end
+												end
+											end)
+											root.Anchored = true -- Nos quedamos quietos bajo tierra
+
 											_G.firePrompt(robPrompt)
 											task.wait(5) 
+
+											-- DESACTIVAR NOCLIP & VOLVER
+											root.Anchored = false
+											if noclipConn then noclipConn:Disconnect() end
 											char:PivotTo(SafezonePos)
 											task.wait(2)
 										end
