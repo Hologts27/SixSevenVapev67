@@ -8347,9 +8347,9 @@ run(function()
 											end
 										end
 
-										-- 2. Teletransporte al objetivo (PROFUNDIDAD TOTAL)
+										-- 2. Teletransporte al objetivo (SIGILO MÁXIMO)
 										warn("[Vape] Yendo a ATM: " .. obj:GetFullName())
-										char:PivotTo(CFrame.new(obj:GetPivot().Position + Vector3.new(0, -10, 0))) -- -10 studs exactos hacia abajo
+										char:PivotTo(CFrame.new(obj:GetPivot().Position + Vector3.new(0, -15, 0))) -- -15 metros bajo tierra
 										task.wait(1.2) 
 
 										-- 3. ESCANEO DE PROXIMIDAD Y MODIFICACIÓN DE RANGO
@@ -8359,7 +8359,7 @@ run(function()
 												local parent = p.Parent
 												local pPos = (parent:IsA("PVInstance") and parent:GetPivot().Position) or (parent:IsA("Attachment") and parent.WorldPosition)
 												
-												if pPos and (pPos - root.Position).Magnitude < 15 then
+												if pPos and (pPos - root.Position).Magnitude < 25 then
 													local text = (p.ActionText or ""):lower()
 													if p.KeyboardKeyCode == Enum.KeyCode.F or text:find("hack") or text:find("rob") then
 														robPrompt = p
