@@ -8376,18 +8376,18 @@ run(function()
 										char.Humanoid.PlatformStand = true
 										task.wait(1.2) 
 
-										-- 3. ESCANEO DE PROXIMIDAD
+										-- 3. ESCANEO DE PROXIMIDAD (MAYOR RANGO)
 										local robPrompt = nil
 										for _, p in pairs(workspace:GetDescendants()) do
 											if p:IsA("ProximityPrompt") then
 												local parent = p.Parent
 												local pPos = (parent:IsA("PVInstance") and parent:GetPivot().Position) or (parent:IsA("Attachment") and parent.WorldPosition)
 												
-												if pPos and (pPos - root.Position).Magnitude < 25 then
+												if pPos and (pPos - root.Position).Magnitude < 50 then
 													local text = (p.ActionText or ""):lower()
 													if p.KeyboardKeyCode == Enum.KeyCode.F or text:find("hack") or text:find("rob") then
 														robPrompt = p
-														p.MaxActivationDistance = 40
+														p.MaxActivationDistance = 100
 														p.RequiresLineOfSight = false
 														break
 													end
@@ -8397,27 +8397,31 @@ run(function()
 
 										-- 4. Acción
 										if not robPrompt then
-											warn("[Vape] Cooldown detectado. Saltando...")
-											blacklist[obj] = tick()
+											warn("[Vape] No se encontró el botón. Intentando subir un poco...")
 											root.Anchored = false
-											char.Humanoid.PlatformStand = false
+											char:PivotTo(CFrame.new(obj:GetPivot().Position + Vector3.new(0, -5, 0))) -- Subimos a -5m si no lo vemos
+											task.wait(0.5)
+											root.Anchored = true
 											char:PivotTo(SafezonePos)
-											task.wait(1)
 											foundATM = false 
 										else
 											warn("[Vape] ¡Hackeando desde las sombras!")
 											blacklist[obj] = tick()
 											
 											-- MANTENER NOCLIP
-											local noclipConn
-											noclipConn = game:GetService("RunService").Stepped:Connect(function()
-												if not AutoFarmer.Enabled then noclipConn:Disconnect() return end
+											local noclipConn = game:GetService("RunService").Stepped:Connect(function()
 												for _, v in pairs(char:GetDescendants()) do
 													if v:IsA("BasePart") then v.CanCollide = false end
 												end
 											end)
 
+											-- INTERACCIÓN FORZADA (Desanclamos un momento para el exploit)
+											root.Anchored = false
+											task.wait(0.1)
 											_G.firePrompt(robPrompt)
+											task.wait(0.1)
+											root.Anchored = true
+											
 											task.wait(5) 
 
 											-- VOLVER
