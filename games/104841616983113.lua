@@ -8416,11 +8416,13 @@ run(function()
 						-- Escaneamos TODOS los descendientes del juego
 						for _, v in pairs(workspace:GetDescendants()) do
 							if v.Name == "StartHack" and not blacklist[v] then
-								-- Buscamos el ATM más cercano en un radio de 10 studs
+								-- Buscamos el ATM más cercano (EXACTO y excluyendo personajes)
 								local foundNearATM = false
-								for _, obj in pairs(workspace:GetDescendants()) do
-									if obj:IsA("Model") and obj.Name:find("ATM") then
-										if (v:GetPivot().Position - obj:GetPivot().Position).Magnitude < 10 then
+								local interactive = workspace:FindFirstChild("World") and workspace.World:FindFirstChild("Interactive")
+								
+								if interactive then
+									for _, obj in pairs(interactive:GetChildren()) do
+										if obj.Name == "ATM" and (v:GetPivot().Position - obj:GetPivot().Position).Magnitude < 10 then
 											foundNearATM = true
 											break
 										end
