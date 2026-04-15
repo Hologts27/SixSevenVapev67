@@ -8104,29 +8104,33 @@ run(function()
 				
 				local function collect(v)
 					if not AutoCash.Enabled then return end
-					-- Buscamos el dinero dentro de la nueva entidad
 					for _, item in pairs(v:GetDescendants()) do
-						if item.Name == "_Interaction" or item.Name == "Cash" or item:IsA("ProximityPrompt") then
-							local target = item:IsA("ProximityPrompt") and item.Parent or item
-							local prompt = item:IsA("ProximityPrompt") and item or item:FindFirstChildWhichIsA("ProximityPrompt", true)
-							
+						if item.Name == "_Interaction" then
 							task.spawn(function()
-								-- 1. Intentar por Remote (Instantáneo)
-								pcall(function()
-									game:GetService("ReplicatedStorage").Remote.PlayerFunc:InvokeServer("talkToMission", target)
-									game:GetService("ReplicatedStorage").Remote.PlayerFunc:InvokeServer("talkToMission", target.Parent)
-								end)
+								local lplr = game:GetService("Players").LocalPlayer
+								local char = lplr.Character
+								local root = char and char:FindFirstChild("HumanoidRootPart")
 								
-								-- 2. Intentar por Touch (Si tiene zona de contacto)
-								if firetouchinterest then
-									firetouchinterest(game.Players.LocalPlayer.Character.HumanoidRootPart, target, 0)
-									task.wait()
-									firetouchinterest(game.Players.LocalPlayer.Character.HumanoidRootPart, target, 1)
+								if root then
+									-- Guardamos posición original
+									local oldPos = root.CFrame
+									
+									-- Flash TP para bypass de distancia
+									char:PivotTo(item:GetPivot())
+									task.wait(0.05)
+									
+									-- Enviamos las señales exactas del espía
+									pcall(function()
+										game:GetService("ReplicatedStorage").Remote.PlayerEvent:FireServer("interacted")
+										game:GetService("ReplicatedStorage").Remote.PlayerFunc:InvokeServer("talkToMission", item)
+									end)
+									
+									task.wait(0.05)
+									-- Volvemos al sitio original
+									char:PivotTo(oldPos)
 								end
-
-								-- 3. Intentar por Prompt forzado
-								if prompt then _G.firePrompt(prompt) end
 							end)
+							break
 						end
 					end
 				end
