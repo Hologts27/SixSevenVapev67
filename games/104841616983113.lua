@@ -8389,8 +8389,6 @@ run(function()
 						task.wait(0.1)
 					end
 				end)
-					end
-				end)
 			else
 				stealthCleanUp()
 			end
