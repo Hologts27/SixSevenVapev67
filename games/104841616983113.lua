@@ -8131,6 +8131,28 @@ run(function()
 		Tooltip = "Automatically picks up cash from the ground."
 	})
 
+	-- Función para verificar si tenemos el circuito
+	local function hasCircuit()
+		if not lplr or not lplr.Backpack then return false end
+		return lplr.Backpack:FindFirstChild("Decryption Circuit") or (lplr.Character and lplr.Character:FindFirstChild("Decryption Circuit"))
+	end
+
+	-- Función para comprar el circuito
+	local function buyCircuit()
+		local remote = game:GetService("ReplicatedStorage"):FindFirstChild("Remote")
+		if remote then remote = remote:FindFirstChild("PlayerFunc") end
+		local item = game:GetService("ReplicatedStorage"):FindFirstChild("Stuff")
+		if item then item = item:FindFirstChild("Black Market") end
+		if item then item = item:FindFirstChild("1") end
+		if item then item = item:FindFirstChild("Decryption Circuit") end
+		
+		if remote and item then
+			warn("[Vape] Comprendo Decryption Circuit...")
+			remote:InvokeServer("purchase", {isRestaurant = false, item = item})
+			task.wait(0.5)
+		end
+	end
+
 	-- Función de respaldo para ProximityPrompts (Global)
 	_G.firePrompt = function(p)
 		if not p then return end
@@ -8191,23 +8213,46 @@ run(function()
 						for _, obj in pairs(list) do
 							if not AutoFarmer.Enabled then break end
 							
-							-- Detectamos si es un modelo de ATM o contiene un prompt relevante
+							-- Detectamos si es un modelo de ATM
 							local isATM = obj.Name == "ATM" or obj.Parent.Name == "ATM"
-							local prompt = obj:FindFirstChildWhichIsA("ProximityPrompt", true) or (obj:IsA("ProximityPrompt") and obj)
 							
-							if isATM and prompt and prompt.Enabled then
-								foundRobbable = true
-								local root = lplr.Character and lplr.Character:FindFirstChild("HumanoidRootPart")
-								if root then
-									local target = prompt.Parent:IsA("Model") and prompt.Parent or prompt.Parent.Parent
-									warn("[Vape] Robando: " .. target.Name)
+							if isATM then
+								-- Buscamos específicamente el prompt de ROBAR (tecla F o texto Rob)
+								local robPrompt = nil
+								for _, p in pairs(obj:GetDescendants()) do
+									if p:IsA("ProximityPrompt") then
+										if p.KeyboardKeyCode == Enum.KeyCode.F or (p.ActionText and p.ActionText:find("Rob")) then
+											robPrompt = p
+											break
+										end
+									end
+								end
+								
+								-- Si encontramos el prompt de robar, procedemos
+								if robPrompt then
+									foundRobbable = true
+									local root = lplr.Character and lplr.Character:FindFirstChild("HumanoidRootPart")
+									if root then
+										-- Verificación de inventario antes de robar
+										if not hasCircuit() then
+											buyCircuit()
+										end
+										
+										-- Si después de comprar seguimos sin tenerlo, saltamos este ATM
+										if not hasCircuit() then
+											warn("[Vape] Sin circuitos, saltando...")
+											continue
+										end
+
+										local target = robPrompt.Parent:IsA("Model") and robPrompt.Parent or robPrompt.Parent.Parent
+										warn("[Vape] Robando ATM: " .. target.Name)
 									
 									-- TP al objeto
 									local targetCF = target:GetPivot() * CFrame.new(0, 0, -4)
 									lplr.Character:PivotTo(targetCF)
 									task.wait(0.5)
 									
-									_G.firePrompt(prompt)
+									_G.firePrompt(robPrompt)
 									task.wait(3.5)
 									
 									warn("[Vape] Volviendo a zona segura.")
