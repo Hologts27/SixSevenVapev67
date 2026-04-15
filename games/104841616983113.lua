@@ -8274,7 +8274,11 @@ run(function()
 		local char = lplr.Character
 		if char then
 			local root = char:FindFirstChild("HumanoidRootPart")
-			if root then root.Anchored = false end
+			if root then 
+				root.Anchored = false 
+				local bv = root:FindFirstChildWhichIsA("BodyVelocity")
+				if bv then bv:Destroy() end
+			end
 			char.Humanoid.PlatformStand = false
 			for v, trans in pairs(originalTrans) do
 				if v and v.Parent then v.Transparency = trans end
@@ -8383,9 +8387,13 @@ run(function()
 											if v:IsA("BasePart") or v:IsA("Decal") then originalTrans[v] = v.Transparency v.Transparency = 1 end
 										end
 
-										-- 2. Teletransporte e Interacción
+										-- 2. Teletransporte e Estabilización (FLOTACIÓN SIN ANCLAJE)
 										char:PivotTo(obj:GetPivot())
-										root.Anchored = true
+										
+										local bv = Instance.new("BodyVelocity")
+										bv.Velocity = Vector3.new(0, 0, 0)
+										bv.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+										bv.Parent = root
 										
 										noclipConn = game:GetService("RunService").Stepped:Connect(function()
 											for _, v in pairs(char:GetDescendants()) do if v:IsA("BasePart") then v.CanCollide = false end end
