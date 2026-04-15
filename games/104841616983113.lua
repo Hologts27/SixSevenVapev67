@@ -8018,22 +8018,6 @@ run(function()
 		Function = function(callback)
 			if callback then
 				task.spawn(function()
-					local lplr = game:GetService("Players").LocalPlayer
-					local PlayerGui = lplr:WaitForChild("PlayerGui")
-					
-					-- Función de respaldo para ProximityPrompts (Global)
-					_G.firePrompt = function(p)
-						if not p then return end
-						if fireproximityprompt then
-							fireproximityprompt(p)
-						else
-							p:InputHoldBegin()
-							task.wait(p.HoldDuration + 0.1)
-							p:InputHoldEnd()
-						end
-					end
-					local firePrompt = _G.firePrompt
-					
 					-- Auto ATM & Lockpick (GOD MODE - REFINADO)
 					task.spawn(function()
 						local PlayerFunc = game:GetService("ReplicatedStorage"):WaitForChild("Remote"):WaitForChild("PlayerFunc")
@@ -8124,7 +8108,8 @@ run(function()
 						
 						for _, v in pairs(targetFolder:GetDescendants()) do
 							if not AutoCash.Enabled then break end
-							if v.Name:find("Cash") or v.Name:find("Money") or v.Name == "CashDrop" then
+							local name = v.Name:lower()
+							if name:find("cash") or name:find("money") or name:find("dollar") or name:find("drop") or name:find("bundle") then
 								-- Intentar recolectar vía Remote Event (Reportado por usuario)
 								game:GetService("ReplicatedStorage").Remote.PlayerEvent:FireServer("interacted")
 								
@@ -8146,12 +8131,22 @@ run(function()
 		Tooltip = "Automatically picks up cash from the ground."
 	})
 
+	-- Función de respaldo para ProximityPrompts (Global)
+	_G.firePrompt = function(p)
+		if not p then return end
+		if fireproximityprompt then
+			fireproximityprompt(p)
+		else
+			p:InputHoldBegin()
+			task.wait((p.HoldDuration or 0) + 0.1)
+			p:InputHoldEnd()
+		end
+	end
+
 	-- Módulo para Auto ATM Farmer
 	local AutoFarmer = {Enabled = false}
 	local SafezonePos = nil
 	local SetSafezoneMod = nil
-	
-	local SetSafezoneMod
 	SetSafezoneMod = vape.Categories.World:CreateModule({
 		Name = "Set AutoRob Safezone",
 		Function = function(callback)
@@ -8161,7 +8156,9 @@ run(function()
 					SafezonePos = root.CFrame
 					warn("[Vape] Zona segura guardada.")
 				end
-				task.spawn(function() SetSafezoneMod.ToggleButton(false) end)
+				if SetSafezoneMod and SetSafezoneMod.ToggleButton then
+					task.spawn(function() SetSafezoneMod.ToggleButton(false) end)
+				end
 			end
 		end,
 		Tooltip = "Saves your current position as the safe spot."
@@ -8174,7 +8171,9 @@ run(function()
 			if callback then
 				if not SafezonePos then
 					warn("[Vape] ¡ERROR! Usa 'Set AutoRob Safezone' primero.")
-					task.spawn(function() AutoFarmer.ToggleButton(false) end)
+					if AutoFarmer and AutoFarmer.ToggleButton then
+						task.spawn(function() AutoFarmer.ToggleButton(false) end)
+					end
 					return
 				end
 
@@ -8182,21 +8181,21 @@ run(function()
 				task.spawn(function()
 					while AutoFarmer.Enabled do
 						local foundRobbable = false
-						-- Buscamos en la ruta específica
-						local atmsFolder = workspace:FindFirstChild("World")
-						if atmsFolder then atmsFolder = atmsFolder:FindFirstChild("Interactive") end
-						if atmsFolder then atmsFolder = atmsFolder:FindFirstChild("ATMs") end
+						-- Buscamos en la ruta específica (Confirmada por Dex del usuario)
+						local world = workspace:FindFirstChild("World")
+						local interactive = world and world:FindFirstChild("Interactive")
 						
-						-- Si no hay folder, buscamos en todo Interactive o Workspace
-						local list = (atmsFolder and atmsFolder:GetDescendants()) or (workspace:FindFirstChild("World") and workspace.World:FindFirstChild("Interactive") and workspace.World.Interactive:GetDescendants()) or workspace:GetDescendants()
+						-- Si no hay folder Interactive, buscamos en todo el World o Workspace
+						local list = (interactive and interactive:GetChildren()) or (world and world:GetDescendants()) or workspace:GetDescendants()
 
 						for _, obj in pairs(list) do
 							if not AutoFarmer.Enabled then break end
 							
-							-- Solo nos importan los modelos que parezcan cajeros o tengan prompts de robo
-							local prompt = obj:IsA("ProximityPrompt") and obj or obj:FindFirstChild("Mission", true) or obj:FindFirstChildWhichIsA("ProximityPrompt", true)
+							-- Detectamos si es un modelo de ATM o contiene un prompt relevante
+							local isATM = obj.Name == "ATM" or obj.Parent.Name == "ATM"
+							local prompt = obj:FindFirstChildWhichIsA("ProximityPrompt", true) or (obj:IsA("ProximityPrompt") and obj)
 							
-							if prompt and prompt.Enabled and (prompt.Name == "Mission" or (prompt.ActionText and prompt.ActionText:find("Rob"))) then
+							if isATM and prompt and prompt.Enabled then
 								foundRobbable = true
 								local root = lplr.Character and lplr.Character:FindFirstChild("HumanoidRootPart")
 								if root then
