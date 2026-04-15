@@ -8261,6 +8261,7 @@ run(function()
 								end
 							end
 						end
+					end
 
 						if not foundRobbable then
 							task.wait(2) -- Reducido el tiempo de espera si no encuentra nada para re-escanear más rápido
