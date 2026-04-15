@@ -8413,9 +8413,6 @@ run(function()
 						-- 3. Búsqueda Agresiva de StartHack (Detección Universal)
 						local targetPart = nil
 						
-						-- Escaneamos TODOS los descendientes del juego
-						for _, v in pairs(workspace:GetDescendants()) do
-							if v.Name == "StartHack" and not blacklist[v] then
 						-- 3. Búsqueda de ATM y Hackeo Ciego
 						local targetATM = nil
 						local interactive = workspace:FindFirstChild("World") and workspace.World:FindFirstChild("Interactive")
