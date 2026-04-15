@@ -8301,15 +8301,21 @@ run(function()
 				task.spawn(function()
 					while AutoFarmer.Enabled do
 						local targetPrompt = nil
-						for _, v in pairs(workspace:GetDescendants()) do
-							if v:IsA("ProximityPrompt") and v.ActionText:find("Hack") then
-								local pos = v.Parent:GetPivot().Position
-								if pos.Magnitude < 5000 and not blacklist[v.Parent] then
-									targetPrompt = v
-									break
+						-- Escaneo optimizado
+						local success, err = pcall(function()
+							for _, v in pairs(workspace:GetDescendants()) do
+								if v:IsA("ProximityPrompt") and v.ActionText:find("Hack") then
+									local parent = v.Parent
+									if parent and parent:IsA("PVInstance") then
+										local pos = parent:GetPivot().Position
+										if pos.Magnitude < 5000 and not blacklist[parent] then
+											targetPrompt = v
+											break
+										end
+									end
 								end
 							end
-						end
+						end)
 
 						if targetPrompt then
 							local targetPart = targetPrompt.Parent
@@ -8319,18 +8325,23 @@ run(function()
 							if root then
 								warn("[Vape] Ejecutando robo stealth...")
 								
-								-- 1. Compra segura
+								-- 1. Compra segura (Circuit)
 								local hasCircuit = lplr.Backpack:FindFirstChild("Decryption Circuit") or char:FindFirstChild("Decryption Circuit")
 								if not hasCircuit then
-									pcall(function() game:GetService("ReplicatedStorage").Remote.PlayerFunc:InvokeServer("purchase", {isRestaurant = false, item = game:GetService("ReplicatedStorage").Stuff.Locations["Black Market"]["3"]["Decryption Circuit"]}) end)
-									task.wait(1) -- Delay humano
+									pcall(function() 
+										game:GetService("ReplicatedStorage").Remote.PlayerFunc:InvokeServer("purchase", {
+											isRestaurant = false, 
+											item = game:GetService("ReplicatedStorage").Stuff.Locations["Black Market"]["3"]["Decryption Circuit"]
+										}) 
+									end)
+									task.wait(1)
 								end
 
-								-- 2. TP Encima (No debajo)
+								-- 2. Teletransporte Stealth (Encima)
 								char:PivotTo(targetPart:GetPivot() * CFrame.new(0, 3, 0))
-								task.wait(0.5) -- Pausa para estabilizar conexión
+								task.wait(0.5)
 								
-								-- 3. Interacción con delay
+								-- 3. Interacción
 								pcall(function()
 									game:GetService("ReplicatedStorage").Remote.PlayerEvent:FireServer("interacted")
 									task.wait(0.4)
@@ -8340,14 +8351,15 @@ run(function()
 								blacklist[targetPart] = tick()
 								waitForLootCompletion()
 								
-								-- 4. Retorno humano
-								task.wait(0.8)
+								-- 4. Retorno
+								task.wait(0.5)
 								char:PivotTo(SafezonePos)
 								task.wait(2)
 							end
 						else
 							task.wait(3)
 						end
+						-- Limpiar blacklist
 						for part, tm in pairs(blacklist) do if tick() - tm > 120 then blacklist[part] = nil end end
 					end
 				end)
@@ -8355,7 +8367,7 @@ run(function()
 				stealthCleanUp()
 			end
 		end,
-		Tooltip = "Safe ATM Robbery with human-like delays and bio-mimetic protection."
+		Tooltip = "Safe ATM Robbery. Activate 'Auto Collect Cash' manually for best results."
 	})
 
 	-- Módulo para Auto Lockpick
