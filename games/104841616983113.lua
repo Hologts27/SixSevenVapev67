@@ -8343,30 +8343,46 @@ run(function()
 							task.wait(5) continue
 						end
 
-						-- 3. ESCANEO SELECTIVO (Solo ATMs)
+						-- 3. ESCANEO FORENSE V19 (Logs Pesados)
 						local targetPrompt, targetPart = nil, nil
 						pcall(function()
-							for _, v in pairs(workspace:GetDescendants()) do
+							local allObjects = workspace:GetDescendants()
+							for _, v in pairs(allObjects) do
 								if v:IsA("ProximityPrompt") then
 									local action = v.ActionText:lower()
 									local object = v.ObjectText:lower()
+									local pName = v.Parent.Name:upper()
 									
-									if action:find("hack") or object:find("atm") then
-										-- Verificamos si es realmente un ATM (Ancestro Check)
+									-- Filtro 1: ¿Parece un hackeo?
+									if action:find("hack") or object:find("atm") or v.Name:find("StartHack") then
+										-- warn("[Vape Debug] Botón sospechoso: " .. v.Parent.Name .. " | Texto: " .. action)
+										
+										-- Filtro 2: ¿Es un ATM?
 										local isRealAtm = false
+										local pathLabel = ""
 										local current = v.Parent
-										for i = 1, 3 do -- Miramos hasta 3 niveles arriba
-											if current and current.Name:upper():find("ATM") then
-												isRealAtm = true
-												targetPart = current
-												break
+										for i = 1, 4 do -- Subimos un nivel más por si acaso
+											if current then
+												pathLabel = pathLabel .. " -> " .. current.Name
+												if current.Name:upper():find("ATM") then
+													isRealAtm = true
+													targetPart = current
+													break
+												end
+												current = current.Parent
 											end
-											if current then current = current.Parent end
 										end
 
-										if isRealAtm and not blacklist[targetPart] then
-											targetPrompt = v
-											break
+										if isRealAtm then
+											if not blacklist[targetPart] then
+												warn("[Vape Success] ¡ATM Válido Detectado! Ruta:" .. pathLabel)
+												targetPrompt = v
+												break
+											else
+												-- warn("[Vape Debug] ATM en blacklist (cooldown): " .. targetPart.Name)
+											end
+										else
+											-- warn("[Vape Debug] Objeto ignorado (No es ATM): " .. pathLabel)
 										end
 									end
 								end
