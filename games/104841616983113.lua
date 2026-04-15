@@ -8391,78 +8391,41 @@ run(function()
 											for _, v in pairs(char:GetDescendants()) do if v:IsA("BasePart") then v.CanCollide = false end end
 										end)
 
-										-- 2. Radar de Interfaz (Búsqueda Selectiva)
-										local robPrompt = nil
+										-- 2. Radar de Entidades y Ejecución por Remotos
+										local targetPart = nil
 										local startSearch = tick()
-										warn("[Vape] Buscando Gatillo de Robo (F)...")
+										warn("[Vape] Buscando Entidad StartHack...")
 										
 										while tick() - startSearch < 3 and AutoFarmer.Enabled do
-											local guiFolder = lplr:FindFirstChild("PlayerGui")
-											if guiFolder then guiFolder = guiFolder:FindFirstChild("ProximityPrompts") end
-											
-											-- A: Buscar en la Interfaz (Prioritario)
-											if guiFolder then
-												for _, p in pairs(guiFolder:GetChildren()) do
-													if p:IsA("ProximityPrompt") and p.KeyboardKeyCode == Enum.KeyCode.F then
-														local name = p.Name:lower()
-														local text = (p.ActionText or ""):lower()
-														if name:find("hack") or text:find("hack") or text:find("rob") then
-															robPrompt = p
+											local searchFolders = {workspace:FindFirstChild("Gameplay"), workspace}
+											for _, folder in pairs(searchFolders) do
+												if folder then
+													for _, v in pairs(folder:GetDescendants()) do
+														if v.Name == "StartHack" and (v:GetPivot().Position - root.Position).Magnitude < 15 then
+															targetPart = v
 															break
 														end
 													end
 												end
+												if targetPart then break end
 											end
-											
-											-- B: Buscar en el Mundo (Fallback si no está en el GUI)
-											if not robPrompt then
-												for _, p in pairs(obj:GetDescendants()) do
-													if p:IsA("ProximityPrompt") and p.KeyboardKeyCode == Enum.KeyCode.F then
-														local text = (p.ActionText or ""):lower()
-														if text:find("hack") or text:find("rob") then
-															robPrompt = p
-															break
-														end
-													end
-												end
-											end
-
-											if robPrompt then break end
+											if targetPart then break end
 											task.wait(0.2)
 										end
 
-										if robPrompt then
-											warn("[Vape] ¡Ejecutando Hackeo Forzado!")
+										if targetPart then
+											warn("[Vape] ¡Entidad StartHack localizada! Iniciando Robo Directo...")
 											blacklist[obj] = tick()
 											
-											-- Forzamos instantáneo
-											local oldHold = robPrompt.HoldDuration
-											robPrompt.HoldDuration = 0
-											robPrompt.RequiresLineOfSight = false
-											robPrompt.MaxActivationDistance = 100
-
-											-- Posicionamos cámara para evitar oclusión
-											local camera = workspace.CurrentCamera
-											local oldCamType = camera.CameraType
-											local oldCamCF = camera.CFrame
-											camera.CameraType = Enum.CameraType.Scriptable
-											camera.CFrame = CFrame.lookAt(obj:GetPivot().Position + Vector3.new(0, 5, 5), obj:GetPivot().Position)
-
-											-- Interacción
-											root.Anchored = false
-											task.wait(0.1)
-											_G.firePrompt(robPrompt)
-											task.wait(0.1)
-											root.Anchored = true
+											-- DISPARO DE REMOTOS DISCUVERTOS POR EL SPY
+											pcall(function()
+												game:GetService("ReplicatedStorage").Remote.PlayerEvent:FireServer("interacted")
+												game:GetService("ReplicatedStorage").Remote.PlayerFunc:InvokeServer("talkToMission", targetPart)
+											end)
 											
-											-- Restauramos cámara
-											camera.CameraType = oldCamType
-											camera.CFrame = oldCamCF
-											robPrompt.HoldDuration = oldHold
-											
-											task.wait(5.5)
+											task.wait(5.5) -- Espera del minijuego
 										else
-											warn("[Vape] No se detectó botón válido.")
+											warn("[Vape] No se detectó la entidad de robo cerca.")
 											task.wait(0.5)
 										end
 
