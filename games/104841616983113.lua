@@ -8440,13 +8440,14 @@ run(function()
 											warn("[Vape] ¡StartHack localizado! ("..targetPart.ClassName..") Iniciando Robo...")
 											blacklist[obj] = tick()
 											
-											-- DISPARO DE REMOTOS (Args exactos del Spy)
+											-- EJECUCIÓN HUMANIZADA (Para evitar bloqueos del servidor)
 											pcall(function()
 												game:GetService("ReplicatedStorage").Remote.PlayerEvent:FireServer("interacted")
+												task.wait(0.3) -- Breve pausa para que el servidor procese la interacción
 												game:GetService("ReplicatedStorage").Remote.PlayerFunc:InvokeServer("talkToMission", targetPart)
 											end)
 											
-											task.wait(8.5)
+											task.wait(8.5) -- Tiempo de hackeo + recogida
 										else
 											warn("[Vape] ATM en cooldown o sin botón. Marcando como usado y saltando...")
 											blacklist[obj] = tick() -- Lo marcamos para no volver en 3 min
