@@ -8280,8 +8280,30 @@ run(function()
 					return
 				end
 
-				warn("[Vape] Iniciando Auto ATM Farmer V3 (Modo Ciego)...")
+				warn("[Vape] Iniciando Auto ATM Farmer V3 (Stealth Mode)...")
 				local blacklist = {}
+
+				-- Función para buffear TODOS los cajeros del mapa (Rango + X-Ray)
+				local function buffAllATMs()
+					pcall(function()
+						local folder = workspace:FindFirstChild("World")
+						if folder then folder = folder:FindFirstChild("Interactive") end
+						if folder then
+							for _, obj in pairs(folder:GetChildren()) do
+								if obj.Name == "ATM" then
+									for _, p in pairs(obj:GetDescendants()) do
+										if p:IsA("ProximityPrompt") then
+											p.MaxActivationDistance = 100
+											p.RequiresLineOfSight = false
+											p.Enabled = true
+										end
+									end
+								end
+							end
+						end
+					end)
+				end
+				buffAllATMs() -- Aplicar al inicio
 
 				-- Función para buscar el item en el mercado negro recursivamente
 				local function getBlackMarketItem()
@@ -8348,7 +8370,7 @@ run(function()
 										end
 
 										-- 2. Teletransporte al objetivo (SIGILO MÁXIMO)
-										char:PivotTo(CFrame.new(obj:GetPivot().Position + Vector3.new(0, -15, 0)))
+										char:PivotTo(CFrame.new(obj:GetPivot().Position + Vector3.new(0, -12, 0)))
 										root.Anchored = true -- Anclaje inmediato para no caerse
 										root.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
 										char.Humanoid.PlatformStand = true
