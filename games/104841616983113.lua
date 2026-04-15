@@ -8365,29 +8365,26 @@ run(function()
 											if item then
 												warn("[Vape] Preparando equipo: Comprando circuito...")
 												game:GetService("ReplicatedStorage").Remote.PlayerFunc:InvokeServer("purchase", {isRestaurant = false, item = item})
-												task.wait(0.5)
 											end
 										end
 
-										-- 2. Teletransporte al objetivo (SIGILO MÁXIMO)
-										char:PivotTo(CFrame.new(obj:GetPivot().Position + Vector3.new(0, -12, 0)))
-										root.Anchored = true -- Anclaje inmediato para no caerse
+										-- 2. Teletransporte al objetivo (8 METROS BAJO TIERRA - EL PUNTO IDEAL)
+										char:PivotTo(CFrame.new(obj:GetPivot().Position + Vector3.new(0, -8, 0)))
+										root.Anchored = true
 										root.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
 										char.Humanoid.PlatformStand = true
 										task.wait(1.2) 
 
-										-- 3. ESCANEO DE PROXIMIDAD (MAYOR RANGO)
+										-- 3. ESCANEO DE PROXIMIDAD
 										local robPrompt = nil
 										for _, p in pairs(workspace:GetDescendants()) do
 											if p:IsA("ProximityPrompt") then
-												local parent = p.Parent
-												local pPos = (parent:IsA("PVInstance") and parent:GetPivot().Position) or (parent:IsA("Attachment") and parent.WorldPosition)
-												
-												if pPos and (pPos - root.Position).Magnitude < 50 then
+												local pPos = (p.Parent:IsA("PVInstance") and p.Parent:GetPivot().Position) or (p.Parent:IsA("Attachment") and p.Parent.WorldPosition)
+												if pPos and (pPos - root.Position).Magnitude < 25 then
 													local text = (p.ActionText or ""):lower()
 													if p.KeyboardKeyCode == Enum.KeyCode.F or text:find("hack") or text:find("rob") then
 														robPrompt = p
-														p.MaxActivationDistance = 100
+														p.MaxActivationDistance = 40
 														p.RequiresLineOfSight = false
 														break
 													end
@@ -8397,61 +8394,37 @@ run(function()
 
 										-- 4. Acción
 										if not robPrompt then
-											warn("[Vape] No se encontró el botón. Intentando subir un poco...")
+											warn("[Vape] El cajero no respondió. Saltando...")
 											root.Anchored = false
-											char:PivotTo(CFrame.new(obj:GetPivot().Position + Vector3.new(0, -5, 0))) -- Subimos a -5m si no lo vemos
-											task.wait(0.5)
-											root.Anchored = true
+											char.Humanoid.PlatformStand = false
 											char:PivotTo(SafezonePos)
+											task.wait(1)
 											foundATM = false 
 										else
-											warn("[Vape] ¡Hackeando desde las sombras!")
+											warn("[Vape] ¡Hackeando desde los -8 metros!")
 											blacklist[obj] = tick()
 											
-											-- MANTENER NOCLIP
-											local noclipConn = game:GetService("RunService").Stepped:Connect(function()
-												for _, v in pairs(char:GetDescendants()) do
-													if v:IsA("BasePart") then v.CanCollide = false end
-												end
-											end)
-
-											-- INTERACCIÓN FORZADA (Modo Cámara Astral)
-											warn("[Vape] Proyectando Cámara Astral...")
-											local atmPos = obj:GetPivot()
+											-- MODO CÁMARA ASTRAL PARA VALIDAR
 											local camera = workspace.CurrentCamera
 											local oldCamType = camera.CameraType
 											local oldCamCF = camera.CFrame
-											
-											-- 1. Congelamos personaje abajo
-											root.Anchored = true
-											
-											-- 2. Movemos SOLO la cámara a la superficie para interactuar
 											camera.CameraType = Enum.CameraType.Scriptable
-											camera.CFrame = CFrame.lookAt(atmPos.Position + Vector3.new(0, 3, 4), atmPos.Position)
+											camera.CFrame = CFrame.lookAt(obj:GetPivot().Position + Vector3.new(0, 3, 3), obj:GetPivot().Position)
 											
-											task.wait(0.2) -- Tiempo para que el motor reconozca la cámara
+											task.wait(0.2)
 											_G.firePrompt(robPrompt)
 											task.wait(0.2)
 											
-											-- 3. Iniciamos el minijuego y devolvemos la cámara
 											camera.CameraType = oldCamType
 											camera.CFrame = oldCamCF
-											warn("[Vape] Hackeando... (Cuerpo oculto)")
 											
-											task.wait(5) 
+											task.wait(5.5) 
 											
 											-- VOLVER
 											root.Anchored = false
 											char.Humanoid.PlatformStand = false
 											char:PivotTo(SafezonePos)
-											task.wait(2)
-
-											-- VOLVER
-											root.Anchored = false
-											char.Humanoid.PlatformStand = false
-											if noclipConn then noclipConn:Disconnect() end
-											char:PivotTo(SafezonePos)
-											task.wait(2)
+											task.wait(2.5)
 										end
 									end
 								end
