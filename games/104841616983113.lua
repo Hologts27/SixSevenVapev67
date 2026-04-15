@@ -8415,28 +8415,36 @@ run(function()
 												end
 											end)
 
-											-- INTERACCIÓN FORZADA (Flash Trigger + Camera Bypass)
-											warn("[Vape] ¡Ejecutando Salto Fantasma con Cámara!")
+											-- INTERACCIÓN FORZADA (Modo Cámara Astral)
+											warn("[Vape] Proyectando Cámara Astral...")
 											local atmPos = obj:GetPivot()
-											local stealthPos = root.CFrame
 											local camera = workspace.CurrentCamera
+											local oldCamType = camera.CameraType
 											local oldCamCF = camera.CFrame
 											
-											root.Anchored = false
-											-- Movemos Personaje y Cámara a la superficie
-											char:PivotTo(atmPos * CFrame.new(0, 0, -2))
-											camera.CFrame = CFrame.lookAt(atmPos.Position + Vector3.new(0, 5, 5), atmPos.Position)
-											
-											task.wait(0.08) -- Tiempo de validación
-											_G.firePrompt(robPrompt)
-											task.wait(0.08)
-											
-											-- Devolvemos todo a las sombras
-											char:PivotTo(stealthPos)
-											camera.CFrame = oldCamCF
+											-- 1. Congelamos personaje abajo
 											root.Anchored = true
 											
+											-- 2. Movemos SOLO la cámara a la superficie para interactuar
+											camera.CameraType = Enum.CameraType.Scriptable
+											camera.CFrame = CFrame.lookAt(atmPos.Position + Vector3.new(0, 3, 4), atmPos.Position)
+											
+											task.wait(0.2) -- Tiempo para que el motor reconozca la cámara
+											_G.firePrompt(robPrompt)
+											task.wait(0.2)
+											
+											-- 3. Iniciamos el minijuego y devolvemos la cámara
+											camera.CameraType = oldCamType
+											camera.CFrame = oldCamCF
+											warn("[Vape] Hackeando... (Cuerpo oculto)")
+											
 											task.wait(5) 
+											
+											-- VOLVER
+											root.Anchored = false
+											char.Humanoid.PlatformStand = false
+											char:PivotTo(SafezonePos)
+											task.wait(2)
 
 											-- VOLVER
 											root.Anchored = false
