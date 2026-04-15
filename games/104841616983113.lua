@@ -8573,6 +8573,59 @@ run(function()
 		Tooltip = "Instantly buys a Lockpick Device from the Black Market."
 	})
 
+	-- Módulo para GunMods (Recoil, RPM, Ammo)
+	local GunMods = {Enabled = false}
+	GunMods = vape.Categories.Combat:CreateModule({
+		Name = "GunMods",
+		Function = function(callback)
+			GunMods.Enabled = callback
+			if callback then
+				task.spawn(function()
+					while GunMods.Enabled do
+						local lplr = game:GetService("Players").LocalPlayer
+						local weapons = {lplr.Backpack, lplr.Character}
+						
+						for _, folder in pairs(weapons) do
+							if folder then
+								for _, weapon in pairs(folder:GetChildren()) do
+									-- Buscamos el módulo de configuración
+									local config = weapon:FindFirstChild("Config")
+									if config and config:IsA("ModuleScript") then
+										pcall(function()
+											local stats = require(config)
+											if type(stats) == "table" then
+												-- 1. No Recoil & No Spread
+												stats.RECOIL = 0
+												stats.SPREAD = 0
+												-- 2. Rapid Fire (Doblar la velocidad original)
+												if stats.RPM and stats.RPM < 1200 then
+													stats.RPM = 1200
+												end
+												-- 3. Modo Automático Forzado
+												stats.SHOOT_MODE = 2
+											end
+										end)
+									end
+									
+									-- 4. Infinite Ammo (Local Lock)
+									local ammoConfig = weapon:FindFirstChild("Config")
+									if ammoConfig then
+										local ammo = ammoConfig:FindFirstChild("Ammo")
+										local total = ammoConfig:FindFirstChild("TotalAmmo")
+										if ammo and ammo:IsA("ValueBase") then ammo.Value = 99 end
+										if total and total:IsA("ValueBase") then total.Value = 999 end
+									end
+								end
+							end
+						end
+						task.wait(1)
+					end
+				end)
+			end
+		end,
+		Tooltip = "No Recoil, Rapid Fire, and Infinite Ammo for all guns."
+	})
+
 	-- Módulo para Interacción Instantánea
 	local InstantInteract = {Enabled = false}
 	InstantInteract = vape.Categories.World:CreateModule({
