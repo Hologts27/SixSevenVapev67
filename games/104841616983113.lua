@@ -8391,19 +8391,26 @@ run(function()
 											for _, v in pairs(char:GetDescendants()) do if v:IsA("BasePart") then v.CanCollide = false end end
 										end)
 
-										-- 2. Radar de Entidades y Ejecución por Remotos
+										-- 2. Radar de Entidades (Búsqueda por Nombre Exacto 'StartHack')
 										local targetPart = nil
 										local startSearch = tick()
-										warn("[Vape] Buscando Entidad StartHack...")
+										warn("[Vape] Localizando Gatillo 'StartHack'...")
 										
 										while tick() - startSearch < 3 and AutoFarmer.Enabled do
-											local searchFolders = {workspace:FindFirstChild("Gameplay"), workspace}
-											for _, folder in pairs(searchFolders) do
-												if folder then
-													for _, v in pairs(folder:GetDescendants()) do
-														if v.Name == "StartHack" and (v:GetPivot().Position - root.Position).Magnitude < 15 then
-															targetPart = v
-															break
+											-- Buscamos en TODOS los sitios posibles (GUI, Gameplay, Workspace)
+											local pools = {game:GetService("Players").LocalPlayer.PlayerGui, workspace:FindFirstChild("Gameplay"), workspace}
+											
+											for _, pool in pairs(pools) do
+												if pool then
+													for _, v in pairs(pool:GetDescendants()) do
+														if v.Name == "StartHack" then
+															-- Verificamos si es una parte o un prompt
+															local pos = (v:IsA("PVInstance") and v:GetPivot().Position) or (v:IsA("ProximityPrompt") and v.Parent and v.Parent:IsA("PVInstance") and v.Parent:GetPivot().Position)
+															
+															if not pos or (pos - root.Position).Magnitude < 30 then
+																targetPart = v
+																break
+															end
 														end
 													end
 												end
@@ -8414,18 +8421,18 @@ run(function()
 										end
 
 										if targetPart then
-											warn("[Vape] ¡Entidad StartHack localizada! Iniciando Robo Directo...")
+											warn("[Vape] ¡StartHack localizado! ("..targetPart.ClassName..") Iniciando Robo...")
 											blacklist[obj] = tick()
 											
-											-- DISPARO DE REMOTOS DISCUVERTOS POR EL SPY
+											-- DISPARO DE REMOTOS (Args exactos del Spy)
 											pcall(function()
 												game:GetService("ReplicatedStorage").Remote.PlayerEvent:FireServer("interacted")
 												game:GetService("ReplicatedStorage").Remote.PlayerFunc:InvokeServer("talkToMission", targetPart)
 											end)
 											
-											task.wait(5.5) -- Espera del minijuego
+											task.wait(5.5)
 										else
-											warn("[Vape] No se detectó la entidad de robo cerca.")
+											warn("[Vape] No se encontró 'StartHack'. ¿Está el item comprado?")
 											task.wait(0.5)
 										end
 
