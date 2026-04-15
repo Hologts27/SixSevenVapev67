@@ -8425,6 +8425,7 @@ run(function()
 								end
 								task.wait(2)
 							end
+						end -- Cierre del else de pCount >= 3
 						task.wait(0.1)
 					end
 				end)
