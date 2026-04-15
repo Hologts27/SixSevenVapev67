@@ -8413,7 +8413,21 @@ run(function()
 
 										if robPrompt then
 											warn("[Vape] ¡Hackeando ATM con éxito!")
+											
+											-- Desactivar colisiones del cajero para que no tape el botón
+											pcall(function()
+												for _, v in pairs(obj:GetDescendants()) do
+													if v:IsA("BasePart") then v.CanCollide = false v.Transparency = 0.5 end
+												end
+											end)
+
+											-- Interrupción de anclaje para permitir interacción
+											root.Anchored = false
+											task.wait(0.1)
 											_G.firePrompt(robPrompt)
+											task.wait(0.1)
+											root.Anchored = true
+											
 											task.wait(5.5)
 										else
 											warn("[Vape] ATM vacío o en cooldown (No se detectó botón tras 2s).")
