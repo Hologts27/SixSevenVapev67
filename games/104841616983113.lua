@@ -8297,6 +8297,66 @@ run(function()
 		end,
 		Tooltip = "Saves your current position as the safe spot."
 	})
+	run(function()
+		local VehicleMods = {Enabled = false}
+		local SpeedMult = {Value = 2}
+		local AccelMult = {Value = 5}
+		local GodFuel = {Enabled = false}
+		local GodCar = {Enabled = false}
+
+		local function patchConfig(t)
+			if type(t) == "table" then
+				if t.MAX_SPEED then t.MAX_SPEED = 85 * SpeedMult.Value end
+				if t.ACCELERATION then t.ACCELERATION = 0.19 * AccelMult.Value end
+				if t.BRAKE_POWER then t.BRAKE_POWER = 10 end
+				if GodFuel.Enabled and t.MAX_FUEL then t.MAX_FUEL = 9999 end
+				if GodCar.Enabled and t.MAX_DURABILITY then t.MAX_DURABILITY = 9999 end
+			end
+			return t
+		end
+
+		local oldReq
+		oldReq = hookfunction(require, function(module)
+			local res = oldReq(module)
+			if VehicleMods.Enabled and type(res) == "table" and (res.MAX_SPEED or res.ACCELERATION) then
+				return patchConfig(res)
+			end
+			return res
+		end)
+
+		VehicleMods = vape.Categories.World:CreateModule({
+			Name = "Vehicle Mods",
+			Function = function(callback)
+				VehicleMods.Enabled = callback
+			end,
+			Tooltip = "Professional Car Hook: Overwrites stats in real-time as the car loads."
+		})
+		SpeedMult = VehicleMods:CreateSlider({
+			Name = "Speed Multiplier",
+			Min = 1,
+			Max = 10,
+			Default = 2,
+			Function = function() end
+		})
+		AccelMult = VehicleMods:CreateSlider({
+			Name = "Accel Multiplier",
+			Min = 1,
+			Max = 20,
+			Default = 5,
+			Function = function() end
+		})
+		GodFuel = VehicleMods:CreateToggle({
+			Name = "Infinite Fuel",
+			Function = function() end,
+			Default = true
+		})
+		GodCar = VehicleMods:CreateToggle({
+			Name = "Car God Mode",
+			Function = function() end,
+			Default = true
+		})
+	end)
+
 
 	AutoFarmer = vape.Categories.World:CreateModule({
 		Name = "Auto ATM Farmer",
@@ -8386,10 +8446,10 @@ run(function()
 											task.wait(1)
 										end
 
-										-- 3. Secuencia Flash & Hide (V43 - CLEAN V18)
-										local basePos = (targetPart:IsA("Model") and targetPart:GetPivot().Position) or (targetPart:IsA("BasePart") and targetPart.Position) or (targetPart:IsA("Attachment") and targetPart.WorldPosition)
-										local surfacePos = CFrame.new(basePos.X, basePos.Y, basePos.Z + 2.5)
-										local hidePos = CFrame.new(basePos.X, basePos.Y - 9, basePos.Z)
+										-- 3. Secuencia Flash & Hide (V44 - REVERSIÓN V18)
+										local baseCF = targetPart:IsA("Model") and targetPart:GetPivot() or targetPart.CFrame
+										local surfacePos = baseCF * CFrame.new(0, 0, 2.5) 
+										local hidePos = baseCF * CFrame.new(0, -9, 0)
 										
 										-- Noclip Activo
 										local noclipLoop = game:GetService("RunService").Stepped:Connect(function()
@@ -8401,24 +8461,25 @@ run(function()
 										end)
 
 										root.Anchored = true
-										root.CFrame = surfacePos -- 1. FLASH
+										root.CFrame = surfacePos -- FLASH
 										task.wait(0.4)
 										
-										pcall(function() -- 2. HACK
+										pcall(function() -- HACK
 											game:GetService("ReplicatedStorage").Remote.PlayerEvent:FireServer("interacted")
 											task.wait(0.3)
 											game:GetService("ReplicatedStorage").Remote.PlayerFunc:InvokeServer("talkToMission", targetPart)
 										end)
 										
 										task.wait(0.5)
-										root.CFrame = hidePos -- 3. HIDE
+										root.CFrame = hidePos -- HIDE
 										
 										blacklist[targetPart] = tick()
-										waitForLootCompletion() -- 4. COLLECT
+										waitForLootCompletion() -- COLLECT
 										
 										task.wait(0.5)
-										noclipLoop:Disconnect() -- 5. CLEANUP
-										char:PivotTo(SafezonePos)
+										noclipLoop:Disconnect() -- CLEANUP
+										root.CFrame = SafezonePos -- Vuelta segura
+										task.wait(0.1)
 										root.Anchored = false
 										task.wait(1.5)
 									end -- Cierre del else (no lockpick)
