@@ -8093,43 +8093,57 @@ run(function()
 		Tooltip = "Automatically completes the ATM hacking minigame for you."
 	})
 
-	-- Módulo para Auto Recoger Dinero (FINAL FIX)
+	-- Módulo para Auto Recoger Dinero (MODO IMÁN INSTANTÁNEO)
 	local AutoCash = {Enabled = false}
 	AutoCash = vape.Categories.World:CreateModule({
 		Name = "Auto Collect Cash",
 		Function = function(callback)
 			AutoCash.Enabled = callback
 			if callback then
-				task.spawn(function()
-					while AutoCash.Enabled do
-						-- Ruta confirmada por diagnóstico
-						local gameplayFold = workspace:FindFirstChild("Gameplay")
-						local entities = gameplayFold and gameplayFold:FindFirstChild("Entities")
-						
-						if entities then
-							for _, entity in pairs(entities:GetDescendants()) do
-								if not AutoCash.Enabled then break end
+				local entities = workspace:FindFirstChild("Gameplay") and workspace.Gameplay:FindFirstChild("Entities")
+				
+				local function collect(v)
+					if not AutoCash.Enabled then return end
+					-- Buscamos el dinero dentro de la nueva entidad
+					for _, item in pairs(v:GetDescendants()) do
+						if item.Name == "_Interaction" or item.Name == "Cash" or item:IsA("ProximityPrompt") then
+							local target = item:IsA("ProximityPrompt") and item.Parent or item
+							local prompt = item:IsA("ProximityPrompt") and item or item:FindFirstChildWhichIsA("ProximityPrompt", true)
+							
+							task.spawn(function()
+								-- 1. Intentar por Remote (Instantáneo)
+								pcall(function()
+									game:GetService("ReplicatedStorage").Remote.PlayerFunc:InvokeServer("talkToMission", target)
+									game:GetService("ReplicatedStorage").Remote.PlayerFunc:InvokeServer("talkToMission", target.Parent)
+								end)
 								
-								-- Buscamos el objeto de interacción del dinero
-								if entity.Name == "_Interaction" or entity.Name == "Cash" then
-									local prompt = entity:FindFirstChildWhichIsA("ProximityPrompt", true)
-									if prompt and (prompt.ActionText == "Steal" or prompt.Enabled) then
-										-- Recolectar
-										pcall(function()
-											_G.firePrompt(prompt)
-											-- Como respaldo usamos el remote talkToMission con el padre (Cash)
-											game:GetService("ReplicatedStorage").Remote.PlayerFunc:InvokeServer("talkToMission", entity.Parent)
-										end)
-									end
+								-- 2. Intentar por Touch (Si tiene zona de contacto)
+								if firetouchinterest then
+									firetouchinterest(game.Players.LocalPlayer.Character.HumanoidRootPart, target, 0)
+									task.wait()
+									firetouchinterest(game.Players.LocalPlayer.Character.HumanoidRootPart, target, 1)
 								end
-							end
+
+								-- 3. Intentar por Prompt forzado
+								if prompt then _G.firePrompt(prompt) end
+							end)
 						end
-						task.wait(1) -- Escaneo eficiente
 					end
-				end)
+				end
+
+				-- Recoger los que ya están en el mapa
+				if entities then
+					for _, v in pairs(entities:GetChildren()) do collect(v) end
+					-- Escuchar cuando caiga dinero nuevo
+					local conn = entities.ChildAdded:Connect(collect)
+					task.spawn(function()
+						while AutoCash.Enabled do task.wait(1) end
+						conn:Disconnect()
+					end)
+				end
 			end
 		end,
-		Tooltip = "Instantly collects all Reward Cash from the ground."
+		Tooltip = "Instant Magnet: Picks up cash the millisecond it touches the ground."
 	})
 
 	-- Función para verificar si tenemos el circuito
