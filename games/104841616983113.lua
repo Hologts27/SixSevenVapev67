@@ -8213,7 +8213,7 @@ run(function()
 		Tooltip = "Attempts to prevent health reduction."
 	})
 
-	-- Módulo para No Fall Damage (Advanced)
+	-- Módulo para No Fall Damage (GOD VERSION)
 	local NoFall = {Enabled = false}
 	NoFall = vape.Categories.World:CreateModule({
 		Name = "No Fall Damage",
@@ -8224,23 +8224,37 @@ run(function()
 					while NoFall.Enabled do
 						local char = lplr.Character
 						local root = char and char:FindFirstChild("HumanoidRootPart")
-						if root and root.AssemblyLinearVelocity.Y < -50 then
-							-- Sensor ampliado a 50 studs para caídas desde gran altura
-							local ray = Ray.new(root.Position, Vector3.new(0, -50, 0))
-							local part = workspace:FindPartOnRayWithIgnoreList(ray, {char})
-							if part then
-								-- Justo antes de tocar el suelo, neutralizamos la velocidad
-								root.AssemblyLinearVelocity = Vector3.new(root.AssemblyLinearVelocity.X, 0, root.AssemblyLinearVelocity.Z)
-								warn("[Vape] Caída de gran altura neutralizada.")
-								task.wait(0.5)
+						local hum = char and char:FindFirstChild("Humanoid")
+						
+						if root and hum then
+							-- Si estamos cayendo muy rápido...
+							if root.AssemblyLinearVelocity.Y < -40 then
+								-- 1. Spoof de Estado (Hacemos que el juego crea que estamos en el suelo)
+								hum:ChangeState(Enum.HumanoidStateType.Running)
+								
+								-- 2. Detección de Suelo (Raycast)
+								local ray = Ray.new(root.Position, Vector3.new(0, -15, 0))
+								local part = workspace:FindPartOnRayWithIgnoreList(ray, {char})
+								
+								if part then
+									-- 3. EL TRUCO MAESTRO: Anclaje de milisegundo
+									warn("[Vape] Neutralizando impacto de caída...")
+									local oldVel = root.AssemblyLinearVelocity
+									root.Anchored = true
+									task.wait(0.05) -- Congelamos el tiempo un instante
+									root.Anchored = false
+									-- Reseteamos la velocidad vertical a 0
+									root.AssemblyLinearVelocity = Vector3.new(oldVel.X, 0, oldVel.Z)
+									task.wait(0.2)
+								end
 							end
 						end
-						task.wait(0.05) -- Escaneo más rápido
+						task.wait() -- Escaneo por cada frame
 					end
 				end)
 			end
 		end,
-		Tooltip = "Neutralizes vertical velocity before impact to avoid fall damage."
+		Tooltip = "Absolute protection from fall damage using state spoofing and velocity freezing."
 	})
 
 	-- Módulo para Auto ATM Farmer
@@ -8573,8 +8587,13 @@ run(function()
 		Tooltip = "Instantly buys a Lockpick Device from the Black Market."
 	})
 
-	-- Módulo para GunMods (Recoil, RPM, Ammo)
+	-- Módulo para GunMods (Recoil, RPM, Ammo) con Ajustes
 	local GunMods = {Enabled = false}
+	local GunRecoil = {Enabled = true}
+	local GunRapid = {Enabled = true}
+	local GunInfinite = {Enabled = true}
+	local GunRPM = {Value = 1200}
+
 	GunMods = vape.Categories.Combat:CreateModule({
 		Name = "GunMods",
 		Function = function(callback)
@@ -8595,25 +8614,28 @@ run(function()
 											local stats = require(config)
 											if type(stats) == "table" then
 												-- 1. No Recoil & No Spread
-												stats.RECOIL = 0
-												stats.SPREAD = 0
-												-- 2. Rapid Fire (Doblar la velocidad original)
-												if stats.RPM and stats.RPM < 1200 then
-													stats.RPM = 1200
+												if GunRecoil.Enabled then
+													stats.RECOIL = 0
+													stats.SPREAD = 0
 												end
-												-- 3. Modo Automático Forzado
-												stats.SHOOT_MODE = 2
+												-- 2. Rapid Fire (Con Slider de RPM)
+												if GunRapid.Enabled then
+													stats.RPM = GunRPM.Value
+													stats.SHOOT_MODE = 2
+												end
 											end
 										end)
 									end
 									
-									-- 4. Infinite Ammo (Local Lock)
-									local ammoConfig = weapon:FindFirstChild("Config")
-									if ammoConfig then
-										local ammo = ammoConfig:FindFirstChild("Ammo")
-										local total = ammoConfig:FindFirstChild("TotalAmmo")
-										if ammo and ammo:IsA("ValueBase") then ammo.Value = 99 end
-										if total and total:IsA("ValueBase") then total.Value = 999 end
+									-- 3. Infinite Ammo (Local Lock)
+									if GunInfinite.Enabled then
+										local ammoConfig = weapon:FindFirstChild("Config")
+										if ammoConfig then
+											local ammo = ammoConfig:FindFirstChild("Ammo")
+											local total = ammoConfig:FindFirstChild("TotalAmmo")
+											if ammo and ammo:IsA("ValueBase") then ammo.Value = 99 end
+											if total and total:IsA("ValueBase") then total.Value = 999 end
+										end
 									end
 								end
 							end
@@ -8623,7 +8645,30 @@ run(function()
 				end)
 			end
 		end,
-		Tooltip = "No Recoil, Rapid Fire, and Infinite Ammo for all guns."
+		Tooltip = "Customizable modifications for all your weapons."
+	})
+
+	GunRecoil = GunMods:CreateToggle({
+		Name = "No Recoil",
+		Default = true,
+		Function = function() end
+	})
+	GunRapid = GunMods:CreateToggle({
+		Name = "Rapid Fire",
+		Default = true,
+		Function = function() end
+	})
+	GunRPM = GunMods:CreateSlider({
+		Name = "RPM Limit",
+		Min = 600,
+		Max = 2500,
+		Default = 1200,
+		Function = function() end
+	})
+	GunInfinite = GunMods:CreateToggle({
+		Name = "Infinite Ammo",
+		Default = true,
+		Function = function() end
 	})
 
 	-- Módulo para Interacción Instantánea
