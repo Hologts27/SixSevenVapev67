@@ -8333,7 +8333,52 @@ run(function()
 					return tonumber(cooldown.Value) and tonumber(cooldown.Value) > 0
 				end
 
-				-- 2. Radar de ATMs
+				-- 2. Radar de ATMs e Inteligencia Autónoma
+				local function getPoliceCount()
+					local team = game:GetService("Teams"):FindFirstChild("Police")
+					return team and #team:GetPlayers() or 0
+				end
+
+				local function isAtmRobbable()
+					-- A: Verificación de Policía (Evita abrir el celular si hay pocos)
+					if getPoliceCount() < 3 then
+						return false, "Faltan Policías (Min: 3)"
+					end
+
+					-- B: Intentamos forzar la carga de la App (Invisible)
+					pcall(function()
+						local dw = lplr.PlayerGui:FindFirstChild("ScreenGui", true)
+						if dw then dw = dw:FindFirstChild("Dark Web", true) end
+						if not dw or not dw.Parent.Visible then
+							game:GetService("ReplicatedStorage").Remote.PlayerFunc:InvokeServer("equipSpecialItem", "Phone", true)
+						end
+					end)
+
+					local phone = lplr.PlayerGui:FindFirstChild("ScreenGui")
+					if phone then phone = phone:FindFirstChild("Right") end
+					if phone then phone = phone:FindFirstChild("Bottom") end
+					if phone then phone = phone:FindFirstChild("Phone") end
+					if phone then phone = phone:FindFirstChild("Dark Web") end
+					if phone then phone = phone:FindFirstChild("_ScrollingList") end
+					if phone then phone = phone:FindFirstChild("Scroll") end
+					if phone then phone = phone:FindFirstChild("ATM Robbery") end
+					
+					if phone then
+						local locked = phone:FindFirstChild("Locked")
+						if locked and locked.Visible then
+							local reason = locked:FindFirstChild("TextLabel") and locked.TextLabel.Text or "Unknown"
+							return false, reason
+						end
+						return true, "Available"
+					end
+					return true, "Scanning..." 
+				end
+
+				local function isAtmActive()
+					local active = game:GetService("ReplicatedStorage").Gameplay.Missions:FindFirstChild("Active")
+					return active and active:FindFirstChild("ATM Robbery")
+				end
+
 				local function buffATMs()
 					local folder = workspace:FindFirstChild("World")
 					if folder then folder = folder:FindFirstChild("Interactive") end
@@ -8362,7 +8407,15 @@ run(function()
 						local foundATM = false
 						local lplr = game:GetService("Players").LocalPlayer
 						
-						-- 2. Esperar si hay Cooldown Global del servidor
+						-- 2. Inteligencia de Celular (Dark Web)
+						local robbable, reason = isAtmRobbable()
+						if not robbable then
+							warn("[Vape] Esperando Disponibilidad (Celular): " .. reason)
+							task.wait(5)
+							continue
+						end
+
+						-- 3. Cooldown Global del servidor
 						if onGlobalCooldown() then
 							warn("[Vape] Esperando Cooldown Global del Servidor...")
 							while AutoFarmer.Enabled and onGlobalCooldown() do task.wait(1) end
@@ -8374,28 +8427,38 @@ run(function()
 							for _, obj in pairs(folder:GetChildren()) do
 								if not AutoFarmer.Enabled or foundATM then break end
 								if obj.Name == "ATM" and not blacklist[obj] then
+									-- X-RAY CHECK: ¿Tiene este cajero el botón de hackeo ahora mismo?
+									local hasHack = false
+									for _, v in pairs(workspace:FindFirstChild("Gameplay") and workspace.Gameplay.Entities:GetChildren() or {}) do
+										if v.Name == "StartHack" and (v:GetPivot().Position - obj:GetPivot().Position).Magnitude < 10 then
+											hasHack = true
+											break
+										end
+									end
+									
+									if not hasHack then
+										-- Si no tiene hack, lo marcamos un ratito para no volver a intentar
+										blacklist[obj] = tick() - 120 -- Solo 1 minuto de cooldown local
+										continue
+									end
+
 									foundATM = true
 									local char = lplr.Character
 									local root = char and char:FindFirstChild("HumanoidRootPart")
 									if root then
-										-- 1. Preparación (Compra, Transparencia y EQUIPAR)
+										-- 1. Preparación y RESET ESTADO
 										if not hasCircuit() then
 											local item = getBlackMarketItem()
 											if item then game:GetService("ReplicatedStorage").Remote.PlayerFunc:InvokeServer("purchase", {isRestaurant = false, item = item}) task.wait(0.5) end
 										end
 
-										-- Sacamos el circuito a la mano
-										local circuit = lplr.Backpack:FindFirstChild("Decryption Circuit") or char:FindFirstChild("Decryption Circuit")
-										if circuit and circuit.Parent ~= char then
-											char.Humanoid:EquipTool(circuit)
-											task.wait(0.2)
-										end
+										game:GetService("ReplicatedStorage").Remote.PlayerEvent:FireServer("humState", 0)
 
 										for _, v in pairs(char:GetDescendants()) do
 											if v:IsA("BasePart") or v:IsA("Decal") then originalTrans[v] = v.Transparency v.Transparency = 1 end
 										end
 
-										-- 2. Teletransporte e Estabilización (FLOTACIÓN SIN ANCLAJE)
+										-- 2. Teletransporte Seguro
 										char:PivotTo(obj:GetPivot())
 										
 										local bv = Instance.new("BodyVelocity")
