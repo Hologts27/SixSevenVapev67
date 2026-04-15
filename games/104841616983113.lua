@@ -8366,10 +8366,17 @@ run(function()
 									local char = lplr.Character
 									local root = char and char:FindFirstChild("HumanoidRootPart")
 									if root then
-										-- 1. Preparación (Compra y Transparencia)
+										-- 1. Preparación (Compra, Transparencia y EQUIPAR)
 										if not hasCircuit() then
 											local item = getBlackMarketItem()
 											if item then game:GetService("ReplicatedStorage").Remote.PlayerFunc:InvokeServer("purchase", {isRestaurant = false, item = item}) task.wait(0.5) end
+										end
+
+										-- Sacamos el circuito a la mano
+										local circuit = lplr.Backpack:FindFirstChild("Decryption Circuit") or char:FindFirstChild("Decryption Circuit")
+										if circuit and circuit.Parent ~= char then
+											char.Humanoid:EquipTool(circuit)
+											task.wait(0.2)
 										end
 
 										for _, v in pairs(char:GetDescendants()) do
@@ -8384,53 +8391,72 @@ run(function()
 											for _, v in pairs(char:GetDescendants()) do if v:IsA("BasePart") then v.CanCollide = false end end
 										end)
 
-										-- 2. Búsqueda Global de Proximidad (El botón está en Gameplay.Entities)
+										-- 2. Radar de Interfaz (El secreto de San Aurie)
 										local robPrompt = nil
 										local startSearch = tick()
-										warn("[Vape] Ejecutando Radar de Entidades...")
+										warn("[Vape] Escaneando Botones en PlayerGui...")
 										
-										while tick() - startSearch < 2 and AutoFarmer.Enabled do
-											-- Escaneamos todo el Workspace por proximidad (porque el botón no está en el cajero)
-											for _, p in pairs(workspace:GetDescendants()) do
-												if p:IsA("ProximityPrompt") then 
-													local pParent = p.Parent
-													local pPos = (pParent:IsA("PVInstance") and pParent:GetPivot().Position) or (pParent:IsA("Attachment") and pParent.WorldPosition)
-													
-													if pPos and (pPos - root.Position).Magnitude < 15 then
+										while tick() - startSearch < 3 and AutoFarmer.Enabled do
+											local guiFolder = lplr:FindFirstChild("PlayerGui")
+											if guiFolder then guiFolder = guiFolder:FindFirstChild("ProximityPrompts") end
+											
+											if guiFolder then
+												for _, p in pairs(guiFolder:GetChildren()) do
+													if p:IsA("ProximityPrompt") then
 														local text = (p.ActionText or ""):lower()
-														local name = p.Parent.Name:lower()
-														-- Prioridad máxima: StartHack o texto "Hack"
+														local name = p.Name:lower()
+														-- Prioridad a StartHack o texto de hackeo
 														if name:find("starthack") or text:find("hack") or text:find("rob") then
-															robPrompt = p 
+															robPrompt = p
 															break
 														end
 													end
 												end
 											end
+											
+											-- FALLBACK: Si no está en el GUI, buscamos en el modelo del cajero
+											if not robPrompt then
+												for _, p in pairs(obj:GetDescendants()) do
+													if p:IsA("ProximityPrompt") then robPrompt = p break end
+												end
+											end
+
 											if robPrompt then break end
 											task.wait(0.2)
 										end
 
 										if robPrompt then
-											warn("[Vape] ¡Hackeando ATM con éxito!")
+											warn("[Vape] ¡Ejecutando Hackeo Forzado!")
+											blacklist[obj] = tick()
 											
-											-- Desactivar colisiones del cajero para que no tape el botón
-											pcall(function()
-												for _, v in pairs(obj:GetDescendants()) do
-													if v:IsA("BasePart") then v.CanCollide = false v.Transparency = 0.5 end
-												end
-											end)
+											-- Forzamos instantáneo
+											local oldHold = robPrompt.HoldDuration
+											robPrompt.HoldDuration = 0
+											robPrompt.RequiresLineOfSight = false
+											robPrompt.MaxActivationDistance = 100
 
-											-- Interrupción de anclaje para permitir interacción
+											-- Posicionamos cámara para evitar oclusión
+											local camera = workspace.CurrentCamera
+											local oldCamType = camera.CameraType
+											local oldCamCF = camera.CFrame
+											camera.CameraType = Enum.CameraType.Scriptable
+											camera.CFrame = CFrame.lookAt(obj:GetPivot().Position + Vector3.new(0, 5, 5), obj:GetPivot().Position)
+
+											-- Interacción
 											root.Anchored = false
 											task.wait(0.1)
 											_G.firePrompt(robPrompt)
 											task.wait(0.1)
 											root.Anchored = true
 											
+											-- Restauramos cámara
+											camera.CameraType = oldCamType
+											camera.CFrame = oldCamCF
+											robPrompt.HoldDuration = oldHold
+											
 											task.wait(5.5)
 										else
-											warn("[Vape] ATM vacío o en cooldown (No se detectó botón tras 2s).")
+											warn("[Vape] No se detectó botón válido.")
 											task.wait(0.5)
 										end
 
