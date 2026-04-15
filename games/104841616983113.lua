@@ -8348,11 +8348,13 @@ run(function()
 										end
 
 										-- 2. Teletransporte al objetivo (SIGILO MÁXIMO)
-										warn("[Vape] Yendo a ATM: " .. obj:GetFullName())
-										char:PivotTo(CFrame.new(obj:GetPivot().Position + Vector3.new(0, -15, 0))) -- -15 metros bajo tierra
+										char:PivotTo(CFrame.new(obj:GetPivot().Position + Vector3.new(0, -15, 0)))
+										root.Anchored = true -- Anclaje inmediato para no caerse
+										root.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+										char.Humanoid.PlatformStand = true
 										task.wait(1.2) 
 
-										-- 3. ESCANEO DE PROXIMIDAD Y MODIFICACIÓN DE RANGO
+										-- 3. ESCANEO DE PROXIMIDAD
 										local robPrompt = nil
 										for _, p in pairs(workspace:GetDescendants()) do
 											if p:IsA("ProximityPrompt") then
@@ -8363,7 +8365,6 @@ run(function()
 													local text = (p.ActionText or ""):lower()
 													if p.KeyboardKeyCode == Enum.KeyCode.F or text:find("hack") or text:find("rob") then
 														robPrompt = p
-														-- PODER DE RANGO: Hackeamos el botón para poder pulsarlo desde abajo
 														p.MaxActivationDistance = 40
 														p.RequiresLineOfSight = false
 														break
@@ -8376,6 +8377,8 @@ run(function()
 										if not robPrompt then
 											warn("[Vape] Cooldown detectado. Saltando...")
 											blacklist[obj] = tick()
+											root.Anchored = false
+											char.Humanoid.PlatformStand = false
 											char:PivotTo(SafezonePos)
 											task.wait(1)
 											foundATM = false 
@@ -8383,7 +8386,7 @@ run(function()
 											warn("[Vape] ¡Hackeando desde las sombras!")
 											blacklist[obj] = tick()
 											
-											-- ACTIVAR NOCLIP & ANCLAJE
+											-- MANTENER NOCLIP
 											local noclipConn
 											noclipConn = game:GetService("RunService").Stepped:Connect(function()
 												if not AutoFarmer.Enabled then noclipConn:Disconnect() return end
@@ -8391,13 +8394,13 @@ run(function()
 													if v:IsA("BasePart") then v.CanCollide = false end
 												end
 											end)
-											root.Anchored = true -- Nos quedamos quietos bajo tierra
 
 											_G.firePrompt(robPrompt)
 											task.wait(5) 
 
-											-- DESACTIVAR NOCLIP & VOLVER
+											-- VOLVER
 											root.Anchored = false
+											char.Humanoid.PlatformStand = false
 											if noclipConn then noclipConn:Disconnect() end
 											char:PivotTo(SafezonePos)
 											task.wait(2)
