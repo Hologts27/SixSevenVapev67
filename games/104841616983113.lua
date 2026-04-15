@@ -8415,17 +8415,25 @@ run(function()
 												end
 											end)
 
-											-- INTERACCIÓN FORZADA (Flash Trigger para bypass de servidor)
-											warn("[Vape] ¡Ejecutando Salto Fantasma!")
+											-- INTERACCIÓN FORZADA (Flash Trigger + Camera Bypass)
+											warn("[Vape] ¡Ejecutando Salto Fantasma con Cámara!")
 											local atmPos = obj:GetPivot()
 											local stealthPos = root.CFrame
+											local camera = workspace.CurrentCamera
+											local oldCamCF = camera.CFrame
 											
 											root.Anchored = false
-											char:PivotTo(atmPos * CFrame.new(0, 0, -2)) -- Saltamos al cajero
-											task.wait(0.05) -- Tiempo mínimo para el servidor
+											-- Movemos Personaje y Cámara a la superficie
+											char:PivotTo(atmPos * CFrame.new(0, 0, -2))
+											camera.CFrame = CFrame.lookAt(atmPos.Position + Vector3.new(0, 5, 5), atmPos.Position)
+											
+											task.wait(0.08) -- Tiempo de validación
 											_G.firePrompt(robPrompt)
-											task.wait(0.05)
-											char:PivotTo(stealthPos) -- Volvemos a las sombras
+											task.wait(0.08)
+											
+											-- Devolvemos todo a las sombras
+											char:PivotTo(stealthPos)
+											camera.CFrame = oldCamCF
 											root.Anchored = true
 											
 											task.wait(5) 
