@@ -8264,6 +8264,25 @@ run(function()
 		Tooltip = "Saves your current position as the safe spot."
 	})
 
+	local AutoFarmer = {Enabled = false}
+	local noclipConn = nil
+	local originalTrans = {}
+
+	local function cleanUpFarmer()
+		if noclipConn then noclipConn:Disconnect() noclipConn = nil end
+		local lplr = game:GetService("Players").LocalPlayer
+		local char = lplr.Character
+		if char then
+			local root = char:FindFirstChild("HumanoidRootPart")
+			if root then root.Anchored = false end
+			char.Humanoid.PlatformStand = false
+			for v, trans in pairs(originalTrans) do
+				if v and v.Parent then v.Transparency = trans end
+			end
+		end
+		originalTrans = {}
+	end
+
 	AutoFarmer = vape.Categories.World:CreateModule({
 		Name = "Auto ATM Farmer",
 		Function = function(callback)
@@ -8271,77 +8290,43 @@ run(function()
 			if callback then
 				if not SafezonePos then
 					warn("[Vape] ¡ERROR! Usa 'Set AutoRob Safezone' primero.")
-					if AutoFarmer and AutoFarmer.ToggleButton then
-						task.spawn(function() AutoFarmer.ToggleButton(false) end)
-					end
+					if AutoFarmer.ToggleButton then task.spawn(function() AutoFarmer.ToggleButton(false) end) end
 					return
 				end
 
-				warn("[Vape] Iniciando Auto ATM Farmer V3 (Stealth Mode)...")
+				warn("[Vape] Iniciando Auto ATM Farmer V3 (Modo Parásito)...")
 				local blacklist = {}
-
-				-- Función para buffear TODOS los cajeros del mapa (Rango + X-Ray)
-				local function buffAllATMs()
-					pcall(function()
-						local folder = workspace:FindFirstChild("World")
-						if folder then folder = folder:FindFirstChild("Interactive") end
-						if folder then
-							for _, obj in pairs(folder:GetChildren()) do
-								if obj.Name == "ATM" then
-									for _, p in pairs(obj:GetDescendants()) do
-										if p:IsA("ProximityPrompt") then
-											p.MaxActivationDistance = 100
-											p.RequiresLineOfSight = false
-											p.Enabled = true
-										end
+				
+				-- Buffear ATMs al iniciar
+				local function buffATMs()
+					local folder = workspace:FindFirstChild("World")
+					if folder then folder = folder:FindFirstChild("Interactive") end
+					if folder then
+						for _, obj in pairs(folder:GetChildren()) do
+							if obj.Name == "ATM" then
+								for _, p in pairs(obj:GetDescendants()) do
+									if p:IsA("ProximityPrompt") then
+										p.MaxActivationDistance = 100
+										p.RequiresLineOfSight = false
 									end
 								end
 							end
 						end
-					end)
-				end
-				buffAllATMs() -- Aplicar al inicio
-
-				-- Función para buscar el item en el mercado negro recursivamente
-				local function getBlackMarketItem()
-					local stuff = game:GetService("ReplicatedStorage"):FindFirstChild("Stuff")
-					if stuff then
-						for _, v in pairs(stuff:GetDescendants()) do
-							if v.Name:find("Decryption") and v.Name:find("Circuit") then
-								return v
-							end
-						end
 					end
-					return nil
 				end
-
-				-- Función para verificar cooldown global (FIXED TYPE ERROR)
-				local function onGlobalCooldown()
-					local var = game:GetService("ReplicatedStorage"):FindFirstChild("Variables")
-					local cooldown = var and var:FindFirstChild("RobberyAntiSpamCooldown")
-					if not cooldown then return false end
-					
-					-- Si es Booleano, lo usamos tal cual
-					if typeof(cooldown.Value) == "boolean" then
-						return cooldown.Value
-					end
-					-- Si es Número, comprobamos si es > 0
-					return tonumber(cooldown.Value) and tonumber(cooldown.Value) > 0
-				end
+				buffATMs()
 
 				task.spawn(function()
 					while AutoFarmer.Enabled do
 						local foundATM = false
 						local lplr = game:GetService("Players").LocalPlayer
 						
-						-- Si tenemos un cooldown global, esperamos
-						if onGlobalCooldown() then
+						-- Cooldown check
+						local var = game:GetService("ReplicatedStorage"):FindFirstChild("Variables")
+						local cooldown = var and var:FindFirstChild("RobberyAntiSpamCooldown")
+						if cooldown and (typeof(cooldown.Value) == "boolean" and cooldown.Value) then
 							warn("[Vape] Esperando Cooldown Global...")
-							while onGlobalCooldown() and AutoFarmer.Enabled do task.wait(1) end
-						end
-
-						for obj, t in pairs(blacklist) do
-							if tick() - t > 120 then blacklist[obj] = nil end
+							while AutoFarmer.Enabled and cooldown.Value do task.wait(1) end
 						end
 
 						local folder = workspace:FindFirstChild("World")
@@ -8349,105 +8334,56 @@ run(function()
 						if folder then
 							for _, obj in pairs(folder:GetChildren()) do
 								if not AutoFarmer.Enabled or foundATM then break end
-								
 								if obj.Name == "ATM" and not blacklist[obj] then
 									foundATM = true
-									
 									local char = lplr.Character
 									local root = char and char:FindFirstChild("HumanoidRootPart")
 									if root then
-										-- 1. Comprar circuito ANTES de tpear si no lo tenemos
+										-- 1. Preparación (Compra y Transparencia)
 										if not hasCircuit() then
 											local item = getBlackMarketItem()
-											if item then
-												warn("[Vape] Preparando equipo: Comprando circuito...")
-												game:GetService("ReplicatedStorage").Remote.PlayerFunc:InvokeServer("purchase", {isRestaurant = false, item = item})
-											end
+											if item then game:GetService("ReplicatedStorage").Remote.PlayerFunc:InvokeServer("purchase", {isRestaurant = false, item = item}) task.wait(0.5) end
 										end
 
-										-- 2. Teletransporte al objetivo (8 METROS BAJO TIERRA - EL PUNTO IDEAL)
-										char:PivotTo(CFrame.new(obj:GetPivot().Position + Vector3.new(0, -8, 0)))
+										for _, v in pairs(char:GetDescendants()) do
+											if v:IsA("BasePart") or v:IsA("Decal") then originalTrans[v] = v.Transparency v.Transparency = 1 end
+										end
+
+										-- 2. Teletransporte e Interacción
+										char:PivotTo(obj:GetPivot())
 										root.Anchored = true
-										root.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
-										char.Humanoid.PlatformStand = true
-										task.wait(1.2) 
+										
+										noclipConn = game:GetService("RunService").Stepped:Connect(function()
+											for _, v in pairs(char:GetDescendants()) do if v:IsA("BasePart") then v.CanCollide = false end end
+										end)
 
-										-- 3. ESCANEO DE PROXIMIDAD
 										local robPrompt = nil
-										for _, p in pairs(workspace:GetDescendants()) do
-											if p:IsA("ProximityPrompt") then
-												local pPos = (p.Parent:IsA("PVInstance") and p.Parent:GetPivot().Position) or (p.Parent:IsA("Attachment") and p.Parent.WorldPosition)
-												if pPos and (pPos - root.Position).Magnitude < 25 then
-													local text = (p.ActionText or ""):lower()
-													if p.KeyboardKeyCode == Enum.KeyCode.F or text:find("hack") or text:find("rob") then
-														robPrompt = p
-														p.MaxActivationDistance = 40
-														p.RequiresLineOfSight = false
-														break
-													end
-												end
-											end
+										for _, p in pairs(obj:GetDescendants()) do
+											if p:IsA("ProximityPrompt") then robPrompt = p break end
 										end
 
-										-- 4. Acción
-										if not robPrompt then
-											warn("[Vape] El cajero no respondió. Saltando...")
-											root.Anchored = false
-											char.Humanoid.PlatformStand = false
-											char:PivotTo(SafezonePos)
-											task.wait(1)
-											foundATM = false 
-										else
-											warn("[Vape] Entrando en Modo Parásito (Invisibilidad Total)")
-											blacklist[obj] = tick()
-											
-											-- 1. Nos hacemos transparentes para no asomar
-											local originals = {}
-											for _, v in pairs(char:GetDescendants()) do
-												if v:IsA("BasePart") or v:IsA("Decal") then
-													originals[v] = v.Transparency
-													v.Transparency = 1
-												end
-											end
-
-											-- 2. Entramos al cajero
-											root.Anchored = false
-											char:PivotTo(obj:GetPivot())
-											task.wait(0.2)
-											root.Anchored = true
-											
-											-- 3. Noclip activo
-											local noclipConn = game:GetService("RunService").Stepped:Connect(function()
-												for _, v in pairs(char:GetDescendants()) do
-													if v:IsA("BasePart") then v.CanCollide = false end
-												end
-											end)
-
-											-- 4. Robar
+										if robPrompt then
 											_G.firePrompt(robPrompt)
-											task.wait(5.5) 
-											
-											-- 5. Restaurar e Irse
-											if noclipConn then noclipConn:Disconnect() end
-											root.Anchored = false
-											for v, trans in pairs(originals) do
-												if v and v.Parent then v.Transparency = trans end
-											end
-											char:PivotTo(SafezonePos)
-											task.wait(2.5)
+											task.wait(5.5)
 										end
+
+										-- 3. Limpieza de este ciclo
+										cleanUpFarmer()
+										blacklist[obj] = tick()
+										char:PivotTo(SafezonePos)
+										task.wait(2.5)
 									end
 								end
 							end
 						end
-
-						if not foundATM then task.wait(3) end
-						task.wait(0.5)
+						task.wait(1)
 					end
 				end)
+			else
+				cleanUpFarmer()
 			end
 		end,
-		Tooltip = "The most advanced ATM farmer for San Aurie. Checks cooldowns and interact flawlessly."
+		Tooltip = "Parasite Mode: Teleports INSIDE the ATM and makes you invisible while robbing."
 	})
 
 	-- Módulo para Auto Lockpick
