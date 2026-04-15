@@ -8275,83 +8275,103 @@ run(function()
 					return
 				end
 
-				warn("[Vape] Iniciando escaneo de ATMs (Filtro específico activado)...")
-				local blacklist = {} -- Lista negra temporal de ATMs ya robados
+				warn("[Vape] Iniciando Auto ATM Farmer V3 (Modo Ciego)...")
+				local blacklist = {}
+
+				-- Función para buscar el item en el mercado negro recursivamente
+				local function getBlackMarketItem()
+					local stuff = game:GetService("ReplicatedStorage"):FindFirstChild("Stuff")
+					if stuff then
+						for _, v in pairs(stuff:GetDescendants()) do
+							if v.Name:find("Decryption") and v.Name:find("Circuit") then
+								return v
+							end
+						end
+					end
+					return nil
+				end
 
 				task.spawn(function()
 					while AutoFarmer.Enabled do
-						local foundRobbable = false
+						local foundATM = false
 						local lplr = game:GetService("Players").LocalPlayer
 						
-						-- Limpiar blacklist antigua (más de 30 segundos)
 						for obj, t in pairs(blacklist) do
-							if tick() - t > 30 then blacklist[obj] = nil end
+							if tick() - t > 60 then blacklist[obj] = nil end
 						end
 
-						local searchFolders = {
-							workspace:FindFirstChild("World"),
-							workspace:FindFirstChild("Gameplay"),
-							workspace
-						}
-
-						for _, root in pairs(searchFolders) do
-							if not root or foundRobbable then continue end
-							
-							for _, p in pairs(root:GetDescendants()) do
-								if not AutoFarmer.Enabled or foundRobbable then break end
+						-- Buscamos cualquier objeto llamado ATM en World.Interactive
+						local folder = workspace:FindFirstChild("World")
+						if folder then folder = folder:FindFirstChild("Interactive") end
+						
+						if folder then
+							for _, obj in pairs(folder:GetChildren()) do
+								if not AutoFarmer.Enabled or foundATM then break end
 								
-								if p:IsA("ProximityPrompt") then
-									local act = (p.ActionText or ""):lower()
-									local obj = (p.ObjectText or ""):lower()
-									local pName = p.Parent.Name:lower()
+								if obj.Name == "ATM" and not blacklist[obj] then
+									foundATM = true
+									warn("[Vape] Yendo a ATM: " .. obj.Name)
 									
-									-- FILTRO ESPECÍFICO DE ATM: Debe tener "atm" en el nombre del objeto o texto del prompt
-									local isATM = pName:find("atm") or obj:find("atm") or obj:find("cajero")
-									local isRob = act:find("rob") or act:find("hack")
-									
-									-- Excluimos específicamente el Yate y barcos si se cuelan
-									if isATM and isRob and not pName:find("yacht") and not blacklist[p.Parent] then
-										
-										if p.KeyboardKeyCode == Enum.KeyCode.F or act:find("rob") then
-											
-											local target = p.Parent:IsA("Model") and p.Parent or p.Parent.Parent
-											foundRobbable = true
-											blacklist[p.Parent] = tick() -- Añadir a lista negra temporal
-											
-											warn("[Vape] ATM DETECTADO: " .. target.Name)
+									local char = lplr.Character
+									local root = char and char:FindFirstChild("HumanoidRootPart")
+									if root then
+										-- 1. Teletransporte inicial
+										char:PivotTo(obj:GetPivot() * CFrame.new(0, 0, -4))
+										task.wait(0.5)
 
-											local rootChar = lplr.Character and lplr.Character:FindFirstChild("HumanoidRootPart")
-											if rootChar then
-												if not hasCircuit() then buyCircuit() task.wait(1) end
-
-												local status, err = pcall(function()
-													lplr.Character:PivotTo(target:GetPivot() * CFrame.new(0, 0, -5))
-													task.wait(0.5)
-													_G.firePrompt(p)
-													warn("[Vape] Robando... NO TE MUEVAS.")
-													task.wait(4.5) -- Tiempo de espera del minijuego
-													lplr.Character:PivotTo(SafezonePos)
-													warn("[Vape] Completado. Buscando siguiente ATM en 3 segundos...")
-												end)
-												
-												if not status then warn("[Vape] ERROR: " .. tostring(err)) end
-												task.wait(3) -- Cooldown para no saturar al servidor
+										-- 2. Verificar/Comprar Circuito
+										if not hasCircuit() then
+											warn("[Vape] Comprando circuito...")
+											local item = getBlackMarketItem()
+											if item then
+												game:GetService("ReplicatedStorage").Remote.PlayerFunc:InvokeServer("purchase", {isRestaurant = false, item = item})
+												task.wait(1.2) -- Espera a que se procese la compra
 											end
 										end
+
+										-- 3. Buscar el botón de robar (Tecla F) que debería aparecer ahora
+										local robPrompt = nil
+										local retry = 0
+										while not robPrompt and retry < 5 do
+											for _, p in pairs(obj:GetDescendants()) do
+												if p:IsA("ProximityPrompt") and (p.KeyboardKeyCode == Enum.KeyCode.F or (p.ActionText and p.ActionText:find("Rob"))) then
+													robPrompt = p
+													break
+												end
+											end
+											if not robPrompt then 
+												task.wait(0.5) 
+												retry = retry + 1 
+											end
+										end
+
+										-- 4. Ejecutar el robo
+										if robPrompt then
+											blacklist[obj] = tick()
+											_G.firePrompt(robPrompt)
+											warn("[Vape] Robando... esperando finalización.")
+											task.wait(4.5)
+										else
+											warn("[Vape] No se pudo activar el modo robo. Saltando.")
+										end
+
+										-- 5. Regresar a zona segura
+										char:PivotTo(SafezonePos)
+										task.wait(2)
 									end
 								end
 							end
 						end
 
-						if not foundRobbable then
-							task.wait(3) -- Pausa larga si no hay nada para evitar Rate Limits
+						if not foundATM then
+							task.wait(3)
 						end
 						task.wait(0.5)
 					end
 				end)
 			end
 		end,
-		Tooltip = "Farms ATMs automatically and teleports back to safezone."
+		Tooltip = "The ultimate ATM farmer. Teleports, buys circuits, and robs automatically."
 	})
 
 	-- Módulo para Auto Lockpick
