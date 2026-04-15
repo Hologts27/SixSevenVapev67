@@ -8333,21 +8333,29 @@ run(function()
 								
 								if obj.Name == "ATM" and not blacklist[obj] then
 									foundATM = true
-									warn("[Vape] Revisando ATM: " .. obj:GetFullName())
 									
 									local char = lplr.Character
 									local root = char and char:FindFirstChild("HumanoidRootPart")
 									if root then
-										-- 1. Teletransporte inicial
+										-- 1. Comprar circuito ANTES de tpear si no lo tenemos
+										if not hasCircuit() then
+											local item = getBlackMarketItem()
+											if item then
+												warn("[Vape] Preparando equipo: Comprando circuito...")
+												game:GetService("ReplicatedStorage").Remote.PlayerFunc:InvokeServer("purchase", {isRestaurant = false, item = item})
+												task.wait(0.5)
+											end
+										end
+
+										-- 2. Teletransporte al objetivo
+										warn("[Vape] Yendo a ATM: " .. obj:GetFullName())
 										char:PivotTo(obj:GetPivot() * CFrame.new(0, 0, -2))
-										warn("[Vape] Llegamos. Iniciando Escaneo de Proximidad...")
 										task.wait(1.2) 
 
-										-- 2. ESCANEO DE PROXIMIDAD (Sujeto a corrección de tipo)
+										-- 3. ESCANEO DE PROXIMIDAD
 										local robPrompt = nil
 										for _, p in pairs(workspace:GetDescendants()) do
 											if p:IsA("ProximityPrompt") then
-												-- Obtenemos la posición real sin importar el tipo de objeto
 												local parent = p.Parent
 												local pPos = (parent:IsA("PVInstance") and parent:GetPivot().Position) or (parent:IsA("Attachment") and parent.WorldPosition)
 												
@@ -8361,26 +8369,16 @@ run(function()
 											end
 										end
 
-										-- 3. Si no hay botón, blacklisteamos
+										-- 4. Acción
 										if not robPrompt then
-											warn("[Vape] No se detectó botón de hackear en el área. Saltando...")
+											warn("[Vape] Cooldown detectado. Saltando...")
 											blacklist[obj] = tick()
 											char:PivotTo(SafezonePos)
 											task.wait(1)
 											foundATM = false 
 										else
-											-- 4. Si hay botón, robamos
-											warn("[Vape] ¡Botón detectado!: " .. (robPrompt.ActionText or "Hack"))
+											warn("[Vape] ¡Hackeando!")
 											blacklist[obj] = tick()
-											
-											if not hasCircuit() then
-												local item = getBlackMarketItem()
-												if item then
-													game:GetService("ReplicatedStorage").Remote.PlayerFunc:InvokeServer("purchase", {isRestaurant = false, item = item})
-													task.wait(0.5)
-												end
-											end
-
 											_G.firePrompt(robPrompt)
 											task.wait(5) 
 											char:PivotTo(SafezonePos)
