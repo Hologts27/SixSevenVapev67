@@ -8299,95 +8299,52 @@ run(function()
 					return
 				end
 
-				-- Inicialización V17
+				-- Inicialización V20 (Safe Start)
 				blacklist = {}
-				vape:CreateNotification("AutoFarmer V17", "Bio-Conectando con Celular...", 3)
+				vape:CreateNotification("AutoFarmer V20", "Iniciado. Escaneando...", 3)
 
 				local lastPoliceWarn = 0
-				local lastPhoneWarn = 0
-				local hasNotifiedOk = false
 
 				task.spawn(function()
 					while AutoFarmer.Enabled do
-						-- 1. Check de Policía
-						local police = game:GetService("Teams"):FindFirstChild("Police")
-						local pCount = police and #police:GetPlayers() or 0
-						if pCount < 3 then
-							if tick() - lastPoliceWarn > 30 then
-								vape:CreateNotification("Pausa: Policía", "Faltan oficiales ("..pCount.."/3)", 3)
-								lastPoliceWarn = tick()
-							end
-							task.wait(5) continue
-						end
+						local loopSuccess, loopError = pcall(function()
+							-- 1. Check de Policía Seguro
+							local teams = game:GetService("Teams")
+							local pol = teams and teams:FindFirstChild("Police")
+							local pCount = pol and #pol:GetPlayers() or 0
 
-						-- 2. Lectura del Cooldown del Celular (Dark Web)
-						local phoneLock = false
-						local phoneReason = ""
-						pcall(function()
-							local gui = lplr.PlayerGui:FindFirstChild("ScreenGui")
-							local dw = gui and gui:FindFirstChild("Dark Web", true)
-							if dw then
-								local locked = dw:FindFirstChild("Locked", true)
-								if locked and locked.Visible then
-									phoneLock = true
-									phoneReason = locked:FindFirstChildWhichIsA("TextLabel") and locked.TextLabel.Text or "Cooldown"
+							if pCount < 3 then
+								if tick() - lastPoliceWarn > 30 then
+									vape:CreateNotification("Pausa: Seguridad", "Faltan oficiales ("..pCount.."/3)", 3)
+									lastPoliceWarn = tick()
 								end
+								task.wait(5)
+								return -- Salta al siguiente ciclo del while
 							end
-						end)
 
-						if phoneLock then
-							if tick() - lastPhoneWarn > 30 then
-								vape:CreateNotification("Pausa: Celular", phoneReason, 4)
-								lastPhoneWarn = tick()
-							end
-							task.wait(5) continue
-						end
-
-						-- 3. ESCANEO FORENSE V19 (Logs Pesados)
-						local targetPrompt, targetPart = nil, nil
-						pcall(function()
+							-- 2. ESCANEO FORENSE V20
+							local targetPrompt, targetPart = nil, nil
 							local allObjects = workspace:GetDescendants()
 							for _, v in pairs(allObjects) do
 								if v:IsA("ProximityPrompt") then
-									local action = v.ActionText:lower()
-									local object = v.ObjectText:lower()
-									local pName = v.Parent.Name:upper()
-									
-									-- Filtro 1: ¿Parece un hackeo?
-									if action:find("hack") or object:find("atm") or v.Name:find("StartHack") then
-										-- warn("[Vape Debug] Botón sospechoso: " .. v.Parent.Name .. " | Texto: " .. action)
-										
-										-- Filtro 2: ¿Es un ATM?
-										local isRealAtm = false
-										local pathLabel = ""
+									local act = v.ActionText:lower()
+									if act:find("hack") then
+										-- ¿Es un ATM?
 										local current = v.Parent
-										for i = 1, 4 do -- Subimos un nivel más por si acaso
-											if current then
-												pathLabel = pathLabel .. " -> " .. current.Name
-												if current.Name:upper():find("ATM") then
-													isRealAtm = true
+										for i = 1, 4 do
+											if current and current.Name:upper():find("ATM") then
+												if not blacklist[current] then
+													targetPrompt = v
 													targetPart = current
 													break
 												end
-												current = current.Parent
 											end
-										end
-
-										if isRealAtm then
-											if not blacklist[targetPart] then
-												warn("[Vape Success] ¡ATM Válido Detectado! Ruta:" .. pathLabel)
-												targetPrompt = v
-												break
-											else
-												-- warn("[Vape Debug] ATM en blacklist (cooldown): " .. targetPart.Name)
-											end
-										else
-											-- warn("[Vape Debug] Objeto ignorado (No es ATM): " .. pathLabel)
+											if current then current = current.Parent end
 										end
 									end
 								end
+								if targetPrompt then break end
 							end
-						end)
 
 						-- Limpieza inteligente de blacklist
 						for obj, tm in pairs(blacklist) do
