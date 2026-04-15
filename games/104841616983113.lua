@@ -8357,25 +8357,35 @@ run(function()
 											for _, v in pairs(char:GetDescendants()) do if v:IsA("BasePart") then v.CanCollide = false end end
 										end)
 
+										-- Búsqueda con Reintentos (Damos tiempo a que cargue el botón)
 										local robPrompt = nil
-										for _, p in pairs(obj:GetDescendants()) do
-											if p:IsA("ProximityPrompt") then 
-												local text = (p.ActionText or ""):lower()
-												if text:find("hack") or text:find("rob") or p.KeyboardKeyCode == Enum.KeyCode.F then
-													robPrompt = p 
-													p.Enabled = true -- Forzamos activación local
-													break 
+										local startSearch = tick()
+										warn("[Vape] Buscando botón de hackeo...")
+										
+										while tick() - startSearch < 2 and AutoFarmer.Enabled do
+											for _, p in pairs(obj:GetDescendants()) do
+												if p:IsA("ProximityPrompt") then 
+													local text = (p.ActionText or ""):lower()
+													local objText = (p.ObjectText or ""):lower()
+													-- Buscamos Hack, Rob, Hackear o simplemente la F
+													if text:find("hack") or text:find("rob") or text:find("hacker") or objText:find("hack") or p.KeyboardKeyCode == Enum.KeyCode.F then
+														robPrompt = p 
+														p.Enabled = true
+														break 
+													end
 												end
 											end
+											if robPrompt then break end
+											task.wait(0.2)
 										end
 
 										if robPrompt then
-											warn("[Vape] ¡Botón de hackeo encontrado! Iniciando...")
+											warn("[Vape] ¡Hackeando ATM con éxito!")
 											_G.firePrompt(robPrompt)
 											task.wait(5.5)
 										else
-											warn("[Vape] No se encontró botón de hackeo en este ATM (posible cooldown).")
-											task.wait(1)
+											warn("[Vape] ATM vacío o en cooldown (No se detectó botón tras 2s).")
+											task.wait(0.5)
 										end
 
 										-- 3. Limpieza de este ciclo
