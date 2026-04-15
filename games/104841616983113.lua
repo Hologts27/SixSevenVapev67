@@ -8398,34 +8398,41 @@ run(function()
 											task.wait(1)
 											foundATM = false 
 										else
-											warn("[Vape] Iniciando Atracción Magnética del Cajero...")
+											warn("[Vape] Entrando en Modo Parásito (Invisibilidad Total)")
 											blacklist[obj] = tick()
 											
-											-- 1. Identificamos la pieza que tiene el prompt
-											local interactPart = robPrompt.Parent
-											if interactPart:IsA("BasePart") or interactPart:IsA("Model") then
-												local oldCF = interactPart:GetPivot()
-												
-												-- 2. TRAEMOS EL CAJERO A NUESTROS PIES (Localmente)
-												interactPart:PivotTo(root.CFrame * CFrame.new(0, 0, -2))
-												task.wait(0.2)
-												
-												-- 3. INTERACTUAMOS A DISTANCIA CERO
-												_G.firePrompt(robPrompt)
-												task.wait(0.2)
-												
-												-- 4. DEVOLVEMOS EL CAJERO A SU SITIO
-												interactPart:PivotTo(oldCF)
-											else
-												-- Fallback si no es una pieza
-												_G.firePrompt(robPrompt)
+											-- 1. Nos hacemos transparentes para no asomar
+											local originals = {}
+											for _, v in pairs(char:GetDescendants()) do
+												if v:IsA("BasePart") or v:IsA("Decal") then
+													originals[v] = v.Transparency
+													v.Transparency = 1
+												end
 											end
+
+											-- 2. Entramos al cajero
+											root.Anchored = false
+											char:PivotTo(obj:GetPivot())
+											task.wait(0.2)
+											root.Anchored = true
 											
+											-- 3. Noclip activo
+											local noclipConn = game:GetService("RunService").Stepped:Connect(function()
+												for _, v in pairs(char:GetDescendants()) do
+													if v:IsA("BasePart") then v.CanCollide = false end
+												end
+											end)
+
+											-- 4. Robar
+											_G.firePrompt(robPrompt)
 											task.wait(5.5) 
 											
-											-- VOLVER
+											-- 5. Restaurar e Irse
+											if noclipConn then noclipConn:Disconnect() end
 											root.Anchored = false
-											char.Humanoid.PlatformStand = false
+											for v, trans in pairs(originals) do
+												if v and v.Parent then v.Transparency = trans end
+											end
 											char:PivotTo(SafezonePos)
 											task.wait(2.5)
 										end
