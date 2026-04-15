@@ -8332,31 +8332,40 @@ run(function()
 								if not AutoFarmer.Enabled or foundATM then break end
 								
 								if obj.Name == "ATM" and not blacklist[obj] then
-									-- COMPROBACIÓN PREVIA: ¿Tiene el botón de hackear disponible?
-									local robPrompt = nil
-									for _, p in pairs(obj:GetDescendants()) do
-										if p:IsA("ProximityPrompt") and p.Enabled then
-											if p.KeyboardKeyCode == Enum.KeyCode.F or (p.ActionText and p.ActionText:lower():find("hack")) then
-												robPrompt = p
-												break
+									foundATM = true
+									warn("[Vape] Revisando ATM: " .. obj:GetFullName())
+									
+									local char = lplr.Character
+									local root = char and char:FindFirstChild("HumanoidRootPart")
+									if root then
+										-- 1. TP para que el juego cargue la interfaz del cajero
+										char:PivotTo(obj:GetPivot() * CFrame.new(0, 0, -2))
+										task.wait(0.5)
+
+										-- 2. Comprobar si el botón de hackear aparece estando cerca
+										local robPrompt = nil
+										for _, p in pairs(obj:GetDescendants()) do
+											if p:IsA("ProximityPrompt") and p.Enabled then
+												local text = (p.ActionText or ""):lower()
+												if p.KeyboardKeyCode == Enum.KeyCode.F or text:find("hack") or text:find("rob") then
+													robPrompt = p
+													break
+												end
 											end
 										end
-									end
 
-									-- Solo tpeamos si el botón existe y está habilitado
-									if robPrompt then
-										foundATM = true
-										warn("[Vape] ATM Válido Detectado. Teletransportando...")
-										
-										local char = lplr.Character
-										local root = char and char:FindFirstChild("HumanoidRootPart")
-										if root then
-											-- TP y mirada
-											char:PivotTo(robPrompt.Parent:GetPivot() * CFrame.new(0, 0, -1.5))
-											root.CFrame = CFrame.lookAt(root.Position, obj:GetPivot().Position)
-											task.wait(0.4)
-
-											-- Verificar circuito
+										-- 3. Si no hay botón, es que ya fue robado. Lo blacklisteamos.
+										if not robPrompt then
+											warn("[Vape] ATM sin botón de robo (posible cooldown). Saltando...")
+											blacklist[obj] = tick()
+											char:PivotTo(SafezonePos)
+											foundATM = false -- Buscamos el siguiente inmediatamente
+										else
+											-- 4. Si hay botón, procedemos al robo
+											warn("[Vape] ¡Cajero listo para hackear!")
+											blacklist[obj] = tick()
+											
+											-- Compra de circuito si no hay
 											if not hasCircuit() then
 												local item = getBlackMarketItem()
 												if item then
@@ -8365,18 +8374,8 @@ run(function()
 												end
 											end
 
-											-- Interacción Fuerza Bruta
-											blacklist[obj] = tick()
-											warn("[Vape] Hackeando...")
-											
-											-- Bypass por exploit + Teclado Virtual
+											-- Interacción
 											_G.firePrompt(robPrompt)
-											pcall(function()
-												game:GetService("VirtualInputManager"):SendKeyEvent(true, Enum.KeyCode.F, false, game)
-												task.wait(0.1)
-												game:GetService("VirtualInputManager"):SendKeyEvent(false, Enum.KeyCode.F, false, game)
-											end)
-
 											task.wait(4.5)
 											char:PivotTo(SafezonePos)
 											task.wait(2)
