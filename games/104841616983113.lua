@@ -7997,6 +7997,19 @@ run(function()
 	local Remote = game:GetService("ReplicatedStorage"):WaitForChild("Remote"):WaitForChild("PlayerFunc")
 	local BlackMarketItem = game:GetService("ReplicatedStorage"):WaitForChild("Stuff"):WaitForChild("Black Market"):WaitForChild("1"):WaitForChild("Decryption Circuit")
 	
+	-- Hook para bloquear reportes de Anti-Cheat (Código 46)
+	local PlayerEvent = game:GetService("ReplicatedStorage"):WaitForChild("Remote"):WaitForChild("PlayerEvent")
+	local oldFireServer
+	oldFireServer = hookmetamethod(PlayerEvent, "__namecall", function(self, ...)
+		local args = {...}
+		local method = getnamecallmethod()
+		if self == PlayerEvent and method == "FireServer" and args[1] == "46" then
+			warn("[Vape] Intento de reporte Anti-Cheat bloqueado (Code 46)")
+			return
+		end
+		return oldFireServer(self, ...)
+	end)
+
 	local BuyCircuit
 	BuyCircuit = vape.Categories.World:CreateModule({
 		Name = "Buy Decryption Circuit",
@@ -8080,7 +8093,7 @@ run(function()
 		Tooltip = "Automatically completes the ATM hacking minigame for you."
 	})
 
-	-- Módulo para Auto Recoger Dinero
+	-- Módulo para Auto Recoger Dinero (OPTIMIZADO)
 	local AutoCash = {Enabled = false}
 	AutoCash = vape.Categories.World:CreateModule({
 		Name = "Auto Collect Cash",
@@ -8089,66 +8102,44 @@ run(function()
 			if callback then
 				task.spawn(function()
 					while AutoCash.Enabled do
-						-- Carpetas candidatas donde suele estar el loot
-						local searchFolders = {
-							workspace:FindFirstChild("World"),
-							workspace:FindFirstChild("Gameplay"),
-							workspace
+						-- Prioridad: buscamos solo en carpetas de loot conocidas para evitar laguear
+						local world = workspace:FindFirstChild("World")
+						local folders = {
+							world and world:FindFirstChild("Items"),
+							world and world:FindFirstChild("Interactive"),
+							workspace:FindFirstChild("Gameplay")
 						}
-						
-						for _, folder in pairs(searchFolders) do
-							if not folder then continue end
-							if not AutoCash.Enabled then break end
-							
-							for _, v in pairs(folder:GetDescendants()) do
-								if not AutoCash.Enabled then break end
-								
-								local isMoney = false
-								local name = v.Name:lower()
-								
-								-- Detección por nombre
-								if name:find("cash") or name:find("money") or name:find("dollar") or name:find("drop") or name:find("bundle") or name:find("collect") then
-									isMoney = true
-								end
-								
-								-- Detección por BillboardGui (Texto flotante de "Cash")
-								if not isMoney then
-									local bgui = v:FindFirstChildWhichIsA("BillboardGui", true)
-									if bgui then
-										for _, txt in pairs(bgui:GetDescendants()) do
-											if txt:IsA("TextLabel") and (txt.Text:lower():find("cash") or txt.Text:find("[$]")) then
-												isMoney = true
-												break
-											end
-										end
-									end
-								end
 
-								if isMoney then
-									-- Intentar recolectar vía Remote Function (Principal en San Aurie)
+						for _, folder in pairs(folders) do
+							if not folder or not AutoCash.Enabled then continue end
+							
+							-- Solo miramos los hijos directos (no GetDescendants) para máximo rendimiento
+							for _, v in pairs(folder:GetChildren()) do
+								local name = v.Name:lower()
+								local p = v:FindFirstChildWhichIsA("ProximityPrompt", true)
+								local promptText = p and (p.ActionText or ""):lower() or ""
+								
+								if name:find("cash") or name:find("money") or name:find("dollar") or name:find("bundle") or name:find("drop") or promptText:find("steal") then
+									
+									-- Intentar recolectar por el Remote principal
 									pcall(function()
 										game:GetService("ReplicatedStorage").Remote.PlayerFunc:InvokeServer("talkToMission", v)
 									end)
-									
-									-- Intentar recolectar vía Remote Event (Fallback)
-									pcall(function()
-										game:GetService("ReplicatedStorage").Remote.PlayerEvent:FireServer("interacted", v)
-									end)
-									
-									-- Intentar via ProximityPrompt si existe
-									local prompt = v:FindFirstChildWhichIsA("ProximityPrompt", true)
-									if prompt and prompt.Enabled then
-										_G.firePrompt(prompt)
+
+									-- Intentar por el prompt si existe
+									if p and p.Enabled then
+										_G.firePrompt(p)
 									end
 								end
 							end
+							task.wait(0.1) -- Pausa breve entre carpetas
 						end
-						task.wait(1) -- Escaneo cada segundo para no laggear
+						task.wait(1.5) -- Pausa larga entre ciclos de escaneo total
 					end
 				end)
 			end
 		end,
-		Tooltip = "Automatically picks up cash from the ground using advanced scanning."
+		Tooltip = "High-performance cash collector. No lag, maximum speed."
 	})
 
 	-- Función para verificar si tenemos el circuito
@@ -8224,17 +8215,17 @@ run(function()
 						local char = lplr.Character
 						local root = char and char:FindFirstChild("HumanoidRootPart")
 						if root and root.AssemblyLinearVelocity.Y < -50 then
-							-- Si caemos muy rápido, detectamos el suelo
-							local ray = Ray.new(root.Position, Vector3.new(0, -15, 0))
+							-- Sensor ampliado a 50 studs para caídas desde gran altura
+							local ray = Ray.new(root.Position, Vector3.new(0, -50, 0))
 							local part = workspace:FindPartOnRayWithIgnoreList(ray, {char})
 							if part then
 								-- Justo antes de tocar el suelo, neutralizamos la velocidad
 								root.AssemblyLinearVelocity = Vector3.new(root.AssemblyLinearVelocity.X, 0, root.AssemblyLinearVelocity.Z)
-								warn("[Vape] Impacto de caída neutralizado.")
+								warn("[Vape] Caída de gran altura neutralizada.")
 								task.wait(0.5)
 							end
 						end
-						task.wait(0.1)
+						task.wait(0.05) -- Escaneo más rápido
 					end
 				end)
 			end
@@ -8335,14 +8326,15 @@ run(function()
 										if circuit then circuit.Parent = lplr.Character end
 										task.wait(0.3)
 
-										-- 4. Buscar el botón de robar (Tecla F)
+										-- 4. Buscar el botón de hackear (Tecla F)
 										local robPrompt = nil
 										local retry = 0
 										while not robPrompt and retry < 5 do
 											for _, p in pairs(obj:GetDescendants()) do
 												if p:IsA("ProximityPrompt") then
-													-- Buscamos por tecla F o por texto de robo
-													if p.KeyboardKeyCode == Enum.KeyCode.F or (p.ActionText and p.ActionText:lower():find("rob")) then
+													-- Buscamos por tecla F o por texto de robo/hack
+													local text = (p.ActionText or ""):lower()
+													if p.KeyboardKeyCode == Enum.KeyCode.F or text:find("rob") or text:find("hack") then
 														robPrompt = p
 														break
 													end
@@ -8394,11 +8386,16 @@ run(function()
 	})
 
 	-- Módulo para Comprar Lockpick
+	local BuyLockpick = {Enabled = false}
 	BuyLockpick = vape.Categories.World:CreateModule({
 		Name = "Buy Lockpick",
 		Function = function(callback)
 			if callback then
-				BuyLockpick.ToggleButton(false)
+				-- Apagamos el botón de forma segura
+				task.spawn(function()
+					if BuyLockpick.ToggleButton then BuyLockpick.ToggleButton(false) end
+				end)
+				
 				task.spawn(function()
 					local args = {
 						"purchase",
