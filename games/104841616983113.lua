@@ -8213,7 +8213,7 @@ run(function()
 		Tooltip = "Attempts to prevent health reduction."
 	})
 
-	-- Módulo para No Fall Damage (Parachute Version)
+	-- Módulo para No Fall Damage (Simple & Stable)
 	local NoFall = {Enabled = false}
 	NoFall = vape.Categories.World:CreateModule({
 		Name = "No Fall Damage",
@@ -8224,23 +8224,75 @@ run(function()
 					while NoFall.Enabled do
 						local char = lplr.Character
 						local root = char and char:FindFirstChild("HumanoidRootPart")
-						if root and root.AssemblyLinearVelocity.Y < -30 then
-							-- Limitamos la velocidad de caída a un valor seguro
-							root.AssemblyLinearVelocity = Vector3.new(root.AssemblyLinearVelocity.X, -20, root.AssemblyLinearVelocity.Z)
+						if root and root.AssemblyLinearVelocity.Y < -35 then
+							local ray = Ray.new(root.Position, Vector3.new(0, -15, 0))
+							local part = workspace:FindPartOnRayWithIgnoreList(ray, {char})
+							if part then
+								root.AssemblyLinearVelocity = Vector3.new(root.AssemblyLinearVelocity.X, 0, root.AssemblyLinearVelocity.Z)
+							end
 						end
 						task.wait()
 					end
 				end)
 			end
 		end,
-		Tooltip = "Caps fall velocity to prevent damage smoothly."
+		Tooltip = "Resets fall velocity before impact safely."
 	})
 
 	-- Módulo para Auto ATM Farmer
 	local AutoFarmer = {Enabled = false}
+	local blacklist = {}
+	local originalTrans = {}
 	local SafezonePos = nil
-	local SetSafezoneMod = nil
-	SetSafezoneMod = vape.Categories.World:CreateModule({
+
+	local function cleanUpFarmer()
+		if noclipConn then noclipConn:Disconnect() noclipConn = nil end
+		local char = game:GetService("Players").LocalPlayer.Character
+		if char then
+			local root = char:FindFirstChild("HumanoidRootPart")
+			if root then 
+				root.Anchored = false 
+				local bv = root:FindFirstChildWhichIsA("BodyVelocity")
+				if bv then bv:Destroy() end
+			end
+			for v, trans in pairs(originalTrans) do
+				if v and v.Parent then v.Transparency = trans end
+			end
+		end
+		originalTrans = {}
+	end
+
+	-- Función para esperar a que el AutoCollect termine de agarrar el botín
+	local function waitForLootCompletion()
+		local root = game:GetService("Players").LocalPlayer.Character and game:GetService("Players").LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+		if not root then return end
+		
+		task.wait(2.5) -- Tiempo de gracia para que empiece a salir el dinero
+		local startWait = tick()
+		
+		while tick() - startWait < 12 do -- Timeout de 12s máximo por seguridad
+			local lootFound = false
+			-- Buscamos billetes en el área
+			for _, v in pairs(workspace:GetDescendants()) do
+				if (v.Name:find("10") or v.Name:find("50") or v.Name:find("100") or v.Name:find("500")) and v:IsA("BasePart") then
+					if (v.Position - root.Position).Magnitude < 25 then
+						lootFound = true
+						break
+					end
+				end
+			end
+			
+			if not lootFound then
+				warn("[Vape] Dinero recogido. Volviendo a Safezone...")
+				task.wait(0.5) -- Confirmación extra
+				return 
+			end
+			task.wait(0.5)
+		end
+		warn("[Vape] Timeout de recogida alcanzado.")
+	end
+
+	local SetSafezoneMod = vape.Categories.World:CreateModule({
 		Name = "Set AutoRob Safezone",
 		Function = function(callback)
 			if callback then
@@ -8249,36 +8301,11 @@ run(function()
 					SafezonePos = root.CFrame
 					warn("[Vape] Zona segura guardada.")
 				end
-				if SetSafezoneMod and SetSafezoneMod.ToggleButton then
-					task.spawn(function() SetSafezoneMod.ToggleButton(false) end)
-				end
+				task.spawn(function() if SetSafezoneMod.ToggleButton then SetSafezoneMod.ToggleButton(false) end end)
 			end
 		end,
 		Tooltip = "Saves your current position as the safe spot."
 	})
-
-	local AutoFarmer = {Enabled = false}
-	local noclipConn = nil
-	local originalTrans = {}
-
-	local function cleanUpFarmer()
-		if noclipConn then noclipConn:Disconnect() noclipConn = nil end
-		local lplr = game:GetService("Players").LocalPlayer
-		local char = lplr.Character
-		if char then
-			local root = char:FindFirstChild("HumanoidRootPart")
-			if root then 
-				root.Anchored = false 
-				local bv = root:FindFirstChildWhichIsA("BodyVelocity")
-				if bv then bv:Destroy() end
-			end
-			char.Humanoid.PlatformStand = false
-			for v, trans in pairs(originalTrans) do
-				if v and v.Parent then v.Transparency = trans end
-			end
-		end
-		originalTrans = {}
-	end
 
 	AutoFarmer = vape.Categories.World:CreateModule({
 		Name = "Auto ATM Farmer",
@@ -8291,157 +8318,46 @@ run(function()
 					return
 				end
 
-				warn("[Vape] Iniciando Auto ATM Farmer V3 (Modo Parásito)...")
-				local blacklist = {}
-				
-				-- Forzar AutoCash para no perder dinero
-				if AutoCash and not AutoCash.Enabled then
-					task.spawn(function() AutoCash:Toggle() end)
+				-- 1. Asegurar AutoCollect
+				local autocash = vape.Modules["Auto Collect Cash"] or vape.Modules["Auto Cash"]
+				if autocash and not autocash.Enabled then
+					task.spawn(function() if autocash.ToggleButton then autocash.ToggleButton(true) end end)
 				end
-				
-				-- 1. Funciones de Apoyo (Inventario y Cooldown)
-				local function getBlackMarketItem()
-					local stuff = game:GetService("ReplicatedStorage"):FindFirstChild("Stuff")
-					if stuff then
-						for _, v in pairs(stuff:GetDescendants()) do
-							if v.Name:find("Decryption") and v.Name:find("Circuit") then return v end
-						end
-					end
-					return nil
-				end
-
-				local function hasCircuit()
-					local char = game:GetService("Players").LocalPlayer.Character
-					if char and char:FindFirstChild("Decryption Circuit") then return true end
-					local bpack = game:GetService("Players").LocalPlayer:FindFirstChild("Backpack")
-					if bpack and bpack:FindFirstChild("Decryption Circuit") then return true end
-					return false
-				end
-
-				local function onGlobalCooldown()
-					local var = game:GetService("ReplicatedStorage"):FindFirstChild("Variables")
-					local cooldown = var and var:FindFirstChild("RobberyAntiSpamCooldown")
-					if not cooldown then return false end
-					if typeof(cooldown.Value) == "boolean" then return cooldown.Value end
-					return tonumber(cooldown.Value) and tonumber(cooldown.Value) > 0
-				end
-
-				-- 2. Radar de ATMs e Inteligencia Autónoma
-				local function getPoliceCount()
-					local team = game:GetService("Teams"):FindFirstChild("Police")
-					return team and #team:GetPlayers() or 0
-				end
-
-				local function isAtmRobbable()
-					-- A: Verificación de Policía (Evita abrir el celular si hay pocos)
-					if getPoliceCount() < 3 then
-						return false, "Faltan Policías (Min: 3)"
-					end
-
-					-- B: Intentamos forzar la carga de la App (Invisible)
-					pcall(function()
-						local dw = lplr.PlayerGui:FindFirstChild("ScreenGui", true)
-						if dw then dw = dw:FindFirstChild("Dark Web", true) end
-						if not dw or not dw.Parent.Visible then
-							game:GetService("ReplicatedStorage").Remote.PlayerFunc:InvokeServer("equipSpecialItem", "Phone", true)
-						end
-					end)
-
-					local phone = lplr.PlayerGui:FindFirstChild("ScreenGui")
-					if phone then phone = phone:FindFirstChild("Right") end
-					if phone then phone = phone:FindFirstChild("Bottom") end
-					if phone then phone = phone:FindFirstChild("Phone") end
-					if phone then phone = phone:FindFirstChild("Dark Web") end
-					if phone then phone = phone:FindFirstChild("_ScrollingList") end
-					if phone then phone = phone:FindFirstChild("Scroll") end
-					if phone then phone = phone:FindFirstChild("ATM Robbery") end
-					
-					if phone then
-						local locked = phone:FindFirstChild("Locked")
-						if locked and locked.Visible then
-							local reason = locked:FindFirstChild("TextLabel") and locked.TextLabel.Text or "Unknown"
-							return false, reason
-						end
-						return true, "Available"
-					end
-					return true, "Scanning..." 
-				end
-
-				local function isAtmActive()
-					local active = game:GetService("ReplicatedStorage").Gameplay.Missions:FindFirstChild("Active")
-					return active and active:FindFirstChild("ATM Robbery")
-				end
-
-				local function buffATMs()
-					local folder = workspace:FindFirstChild("World")
-					if folder then folder = folder:FindFirstChild("Interactive") end
-					if folder then
-						for _, obj in pairs(folder:GetChildren()) do
-							if obj.Name == "ATM" then
-								for _, p in pairs(obj:GetDescendants()) do
-									if p:IsA("ProximityPrompt") then
-										p.MaxActivationDistance = 100
-										p.RequiresLineOfSight = false
-									end
-								end
-							end
-						end
-					end
-				end
-				buffATMs()
 
 				task.spawn(function()
 					while AutoFarmer.Enabled do
-						-- 1. Limpieza de Blacklist Cooldown
-						for atm, tm in pairs(blacklist) do
-							if tick() - tm > 180 then blacklist[atm] = nil end
-						end
-
-						-- 2. Inteligencia de Celular y Cooldown Global
-						local robbable, reason = isAtmRobbable()
-						if not robbable then
-							warn("[Vape] Esperando: " .. reason)
-							task.wait(5)
-							continue
-						end
-
-						if onGlobalCooldown() then
-							warn("[Vape] Esperando Cooldown Global...")
-							while AutoFarmer.Enabled and onGlobalCooldown() do task.wait(1) end
-						end
-
-						-- 3. Búsqueda Agresiva de StartHack (Detección Universal)
-						local targetPart = nil
-						
-						-- 3. Búsqueda de ATM y Hackeo Ciego
-						local targetATM = nil
-						local interactive = workspace:FindFirstChild("World") and workspace.World:FindFirstChild("Interactive")
-						
-						if interactive then
-							for _, obj in pairs(interactive:GetChildren()) do
-								if obj.Name == "ATM" and not blacklist[obj] then
-									targetATM = obj
+						-- Radar de Prompts (Solo los que digan Hack)
+						local targetPrompt = nil
+						for _, v in pairs(workspace:GetDescendants()) do
+							if v:IsA("ProximityPrompt") and v.ActionText:find("Hack") then
+								-- Evitamos el Yate (Zona lejana)
+								local pos = v.Parent:GetPivot().Position
+								if pos.Magnitude < 5000 and not blacklist[v.Parent] then
+									targetPrompt = v
 									break
 								end
 							end
 						end
 
-						if targetATM then
-							local lplr = game:GetService("Players").LocalPlayer
+						if targetPrompt then
+							local targetPart = targetPrompt.Parent
 							local char = lplr.Character
 							local root = char and char:FindFirstChild("HumanoidRootPart")
 							
 							if root then
-								warn("[Vape] Objetivo ATM fijado: Viajando...")
+								warn("[Vape] ¡Cajero activo detectado! Iniciando fase de robo...")
 								
-								-- Preparación y Vuelo
-								if not hasCircuit() then
-									local item = getBlackMarketItem()
-									if item then game:GetService("ReplicatedStorage").Remote.PlayerFunc:InvokeServer("purchase", {isRestaurant = false, item = item}) task.wait(0.5) end
+								-- 2. Preparación (Compra de circuito si falta)
+								local hasCircuit = lplr.Backpack:FindFirstChild("Decryption Circuit") or char:FindFirstChild("Decryption Circuit")
+								if not hasCircuit then
+									pcall(function()
+										game:GetService("ReplicatedStorage").Remote.PlayerFunc:InvokeServer("purchase", {isRestaurant = false, item = game:GetService("ReplicatedStorage").Stuff.Locations["Black Market"]["3"]["Decryption Circuit"]})
+									end)
+									task.wait(0.5)
 								end
-								game:GetService("ReplicatedStorage").Remote.PlayerEvent:FireServer("humState", 0)
 
-								char:PivotTo(targetATM:GetPivot())
+								-- 3. Infiltración y Estabilización
+								char:PivotTo(targetPart:GetPivot() * CFrame.new(0, -2, 0))
 								
 								local bv = Instance.new("BodyVelocity")
 								bv.Velocity = Vector3.new(0, 0, 0)
@@ -8452,36 +8368,39 @@ run(function()
 									for _, v in pairs(char:GetDescendants()) do if v:IsA("BasePart") then v.CanCollide = false end end
 								end)
 
-								-- 4. INTENTO DE HACKEO (Ciego + Búsqueda Local)
-								task.wait(0.5)
-								local realButton = targetATM:FindFirstChild("StartHack", true) or workspace:FindFirstChild("StartHack", true)
-								
+								-- 4. Ejecución de Remotos
 								pcall(function()
 									game:GetService("ReplicatedStorage").Remote.PlayerEvent:FireServer("interacted")
 									task.wait(0.3)
-									-- Si no encontramos el botón, probamos a pasarle el ATM mismo (A veces el servidor lo acepta)
-									game:GetService("ReplicatedStorage").Remote.PlayerFunc:InvokeServer("talkToMission", realButton or targetATM)
+									game:GetService("ReplicatedStorage").Remote.PlayerFunc:InvokeServer("talkToMission", targetPart)
 								end)
 								
-								blacklist[targetATM] = tick()
-								task.wait(8.5)
+								blacklist[targetPart] = tick()
 								
+								-- 5. ESPERA INTELIGENTE DE BOTÍN
+								waitForLootCompletion()
+								
+								-- 6. Retorno y Limpieza
 								cleanUpFarmer()
 								char:PivotTo(SafezonePos)
 								task.wait(2)
 							end
 						else
 							warn("[Vape] Esperando cajeros disponibles...")
-							task.wait(5)
+							task.wait(3)
 						end
-						task.wait(0.5)
+						
+						-- Limpieza de Blacklist cada 2 min
+						for part, tm in pairs(blacklist) do
+							if tick() - tm > 120 then blacklist[part] = nil end
+						end
 					end
 				end)
 			else
 				cleanUpFarmer()
 			end
 		end,
-		Tooltip = "Parasite Mode: Teleports INSIDE the ATM and makes you invisible while robbing."
+		Tooltip = "Automated ATM Robbery with smart loot detection and auto-safezone return."
 	})
 
 	-- Módulo para Auto Lockpick
