@@ -8021,6 +8021,18 @@ run(function()
 					local lplr = game:GetService("Players").LocalPlayer
 					local PlayerGui = lplr:WaitForChild("PlayerGui")
 					
+					-- Función de respaldo para ProximityPrompts
+					local function firePrompt(p)
+						if not p then return end
+						if fireproximityprompt then
+							fireproximityprompt(p)
+						else
+							p:InputHoldBegin()
+							task.wait(p.HoldDuration + 0.1)
+							p:InputHoldEnd()
+						end
+					end
+					
 					-- Auto ATM & Lockpick (GOD MODE - REFINADO)
 					task.spawn(function()
 						local PlayerFunc = game:GetService("ReplicatedStorage"):WaitForChild("Remote"):WaitForChild("PlayerFunc")
@@ -8095,7 +8107,7 @@ run(function()
 						-- Escaneamos cualquier objeto CashDrop en el mundo
 						for _, v in pairs(workspace:GetDescendants()) do
 							if v.Name == "CashDrop" and v:IsA("ProximityPrompt") and v.Enabled then
-								fireproximityprompt(v)
+								firePrompt(v)
 								-- warn("[Vape] Dinero recolectado vía Prompt.")
 								task.wait(0.1)
 							end
@@ -8122,10 +8134,7 @@ run(function()
 					SafezonePos = root.CFrame
 					warn("[Vape] Zona segura guardada.")
 				end
-				task.spawn(function()
-					task.wait(0.1)
-					SetSafezoneMod.ToggleButton(false)
-				end)
+				return false -- Se apaga solo automáticamente
 			end
 		end,
 		Tooltip = "Saves your current position as the safe spot."
@@ -8158,11 +8167,11 @@ run(function()
 									local root = lplr.Character and lplr.Character:FindFirstChild("HumanoidRootPart")
 									if root then
 										warn("[Vape] Yendo a: " .. obj.Name)
-										root.CFrame = obj:GetModelCFrame() * CFrame.new(0, 0, -3) -- Un poco delante
+										root.CFrame = obj:GetModelCFrame() * CFrame.new(0, 0, -5)
 										task.wait(0.5)
 										
-										fireproximityprompt(prompt)
-										task.wait(2.5) -- Tiempo para ganar + recoger
+										firePrompt(prompt)
+										task.wait(3.5) -- Más tiempo para asegurar el loot
 										
 										root.CFrame = SafezonePos
 										task.wait(3)
