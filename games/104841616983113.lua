@@ -8301,17 +8301,15 @@ run(function()
 				task.spawn(function()
 					while AutoFarmer.Enabled do
 						local targetPrompt = nil
-						-- Escaneo optimizado
+						-- Filtro ATM Estricto
 						local success, err = pcall(function()
 							for _, v in pairs(workspace:GetDescendants()) do
 								if v:IsA("ProximityPrompt") and v.ActionText:find("Hack") then
 									local parent = v.Parent
-									if parent and parent:IsA("PVInstance") then
-										local pos = parent:GetPivot().Position
-										if pos.Magnitude < 5000 and not blacklist[parent] then
-											targetPrompt = v
-											break
-										end
+									-- Solo aceptamos si el padre es un "ATM"
+									if parent and parent.Name == "ATM" and not blacklist[parent] then
+										targetPrompt = v
+										break
 									end
 								end
 							end
@@ -8323,35 +8321,65 @@ run(function()
 							local root = char and char:FindFirstChild("HumanoidRootPart")
 							
 							if root then
-								warn("[Vape] Ejecutando robo stealth...")
+								warn("[Vape] Objetivo ATM encontrado. Iniciando fase stealth...")
 								
-								-- 1. Compra segura (Circuit)
+								-- 1. Preparación de Circuito (Compra Dinámica)
 								local hasCircuit = lplr.Backpack:FindFirstChild("Decryption Circuit") or char:FindFirstChild("Decryption Circuit")
 								if not hasCircuit then
-									pcall(function() 
-										game:GetService("ReplicatedStorage").Remote.PlayerFunc:InvokeServer("purchase", {
-											isRestaurant = false, 
-											item = game:GetService("ReplicatedStorage").Stuff.Locations["Black Market"]["3"]["Decryption Circuit"]
-										}) 
-									end)
-									task.wait(1)
+									local bmItem = nil
+									local stuff = game:GetService("ReplicatedStorage"):FindFirstChild("Stuff")
+									local bm = stuff and stuff:FindFirstChild("Black Market")
+									if bm then
+										for _, v in pairs(bm:GetDescendants()) do
+											if v.Name:find("Decryption") and v.Name:find("Circuit") then
+												bmItem = v
+												break
+											end
+										end
+									end
+
+									if bmItem then
+										pcall(function() 
+											game:GetService("ReplicatedStorage").Remote.PlayerFunc:InvokeServer("purchase", {
+												isRestaurant = false, 
+												item = bmItem
+											}) 
+										end)
+										warn("[Vape] Decryption Circuit comprado automáticamente.")
+										task.wait(1.2)
+									else
+										warn("[Vape] ¡ERROR! No se encontró el Circuito en el Mercado Negro.")
+									end
 								end
 
-								-- 2. Teletransporte Stealth (Encima)
+								-- 2. TP Encima
 								char:PivotTo(targetPart:GetPivot() * CFrame.new(0, 3, 0))
-								task.wait(0.5)
 								
-								-- 3. Interacción
-								pcall(function()
+								-- 3. VERIFICACIÓN DE FALLO (2 Segundos)
+								task.wait(1)
+								local startOk = false
+								local hackAttempt = pcall(function()
 									game:GetService("ReplicatedStorage").Remote.PlayerEvent:FireServer("interacted")
 									task.wait(0.4)
 									game:GetService("ReplicatedStorage").Remote.PlayerFunc:InvokeServer("talkToMission", targetPart)
+									startOk = true
 								end)
 								
+								task.wait(1) -- Tiempo total: 2s aprox
+								
+								-- Si por alguna razón el servidor no responde o el botón sigue ahí parado
+								if not startOk then
+									warn("[Vape] El cajero no responde. Abortando...")
+									blacklist[targetPart] = tick()
+									char:PivotTo(SafezonePos)
+									continue
+								end
+
+								-- 4. Fase de Recogida
 								blacklist[targetPart] = tick()
 								waitForLootCompletion()
 								
-								-- 4. Retorno
+								-- 5. Retorno Seguro
 								task.wait(0.5)
 								char:PivotTo(SafezonePos)
 								task.wait(2)
