@@ -8176,13 +8176,14 @@ run(function()
 	-- Función de respaldo para ProximityPrompts (Global)
 	_G.firePrompt = function(p)
 		if not p then return end
+		p.HoldDuration = 0 -- Forzar interacción instantánea
 		if fireproximityprompt then
 			fireproximityprompt(p)
-		else
-			p:InputHoldBegin()
-			task.wait((p.HoldDuration or 0) + 0.1)
-			p:InputHoldEnd()
 		end
+		-- Fallback agresivo (funciona en casi todos los exploits)
+		p:InputHoldBegin()
+		task.wait(0.1)
+		p:InputHoldEnd()
 	end
 
 	-- Módulo para God Mode (Health Shield)
@@ -8315,8 +8316,8 @@ run(function()
 									local char = lplr.Character
 									local root = char and char:FindFirstChild("HumanoidRootPart")
 									if root then
-										-- 1. Teletransporte inicial
-										char:PivotTo(obj:GetPivot() * CFrame.new(0, 0, -4))
+										-- 1. Teletransporte inicial (MUY CERCA)
+										char:PivotTo(obj:GetPivot() * CFrame.new(0, 0, -2))
 										task.wait(0.5)
 
 										-- 2. Verificar/Comprar Circuito
@@ -8325,34 +8326,45 @@ run(function()
 											local item = getBlackMarketItem()
 											if item then
 												game:GetService("ReplicatedStorage").Remote.PlayerFunc:InvokeServer("purchase", {isRestaurant = false, item = item})
-												task.wait(1.2) -- Espera a que se procese la compra
+												task.wait(0.5)
 											end
 										end
 
-										-- 3. Buscar el botón de robar (Tecla F) que debería aparecer ahora
+										-- 3. Equipar circuito (Asegurar que esté en la mano)
+										local circuit = lplr.Backpack:FindFirstChild("Decryption Circuit")
+										if circuit then circuit.Parent = lplr.Character end
+										task.wait(0.3)
+
+										-- 4. Buscar el botón de robar (Tecla F)
 										local robPrompt = nil
 										local retry = 0
 										while not robPrompt and retry < 5 do
 											for _, p in pairs(obj:GetDescendants()) do
-												if p:IsA("ProximityPrompt") and (p.KeyboardKeyCode == Enum.KeyCode.F or (p.ActionText and p.ActionText:find("Rob"))) then
-													robPrompt = p
-													break
+												if p:IsA("ProximityPrompt") then
+													-- Buscamos por tecla F o por texto de robo
+													if p.KeyboardKeyCode == Enum.KeyCode.F or (p.ActionText and p.ActionText:lower():find("rob")) then
+														robPrompt = p
+														break
+													end
 												end
 											end
-											if not robPrompt then 
-												task.wait(0.5) 
-												retry = retry + 1 
-											end
+											if not robPrompt then task.wait(0.5) retry = retry + 1 end
 										end
 
-										-- 4. Ejecutar el robo
+										-- 5. Ejecutar el robo
 										if robPrompt then
 											blacklist[obj] = tick()
+											warn("[Vape] Ejecutando Interacción (Tecla F)...")
+											
+											-- Forzamos distancia máxima por si acaso
+											robPrompt.MaxActivationDistance = 20 
+											task.wait(0.1)
+											
 											_G.firePrompt(robPrompt)
-											warn("[Vape] Robando... esperando finalización.")
+											warn("[Vape] Robando... NO TE MUEVAS.")
 											task.wait(4.5)
 										else
-											warn("[Vape] No se pudo activar el modo robo. Saltando.")
+											warn("[Vape] No se pudo encontrar el botón de la F en " .. obj.Name)
 										end
 
 										-- 5. Regresar a zona segura
