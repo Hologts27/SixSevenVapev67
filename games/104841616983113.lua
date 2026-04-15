@@ -8415,11 +8415,17 @@ run(function()
 												end
 											end)
 
-											-- INTERACCIÓN FORZADA (Desanclamos un momento para el exploit)
+											-- INTERACCIÓN FORZADA (Flash Trigger para bypass de servidor)
+											warn("[Vape] ¡Ejecutando Salto Fantasma!")
+											local atmPos = obj:GetPivot()
+											local stealthPos = root.CFrame
+											
 											root.Anchored = false
-											task.wait(0.1)
+											char:PivotTo(atmPos * CFrame.new(0, 0, -2)) -- Saltamos al cajero
+											task.wait(0.05) -- Tiempo mínimo para el servidor
 											_G.firePrompt(robPrompt)
-											task.wait(0.1)
+											task.wait(0.05)
+											char:PivotTo(stealthPos) -- Volvemos a las sombras
 											root.Anchored = true
 											
 											task.wait(5) 
