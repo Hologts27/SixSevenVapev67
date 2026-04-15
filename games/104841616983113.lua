@@ -8093,7 +8093,7 @@ run(function()
 		Tooltip = "Automatically completes the ATM hacking minigame for you."
 	})
 
-	-- Módulo para Auto Recoger Dinero (OPTIMIZADO)
+	-- Módulo para Auto Recoger Dinero (FINAL FIX)
 	local AutoCash = {Enabled = false}
 	AutoCash = vape.Categories.World:CreateModule({
 		Name = "Auto Collect Cash",
@@ -8102,44 +8102,34 @@ run(function()
 			if callback then
 				task.spawn(function()
 					while AutoCash.Enabled do
-						-- Prioridad: buscamos solo en carpetas de loot conocidas para evitar laguear
-						local world = workspace:FindFirstChild("World")
-						local folders = {
-							world and world:FindFirstChild("Items"),
-							world and world:FindFirstChild("Interactive"),
-							workspace:FindFirstChild("Gameplay")
-						}
-
-						for _, folder in pairs(folders) do
-							if not folder or not AutoCash.Enabled then continue end
-							
-							-- Solo miramos los hijos directos (no GetDescendants) para máximo rendimiento
-							for _, v in pairs(folder:GetChildren()) do
-								local name = v.Name:lower()
-								local p = v:FindFirstChildWhichIsA("ProximityPrompt", true)
-								local promptText = p and (p.ActionText or ""):lower() or ""
+						-- Ruta confirmada por diagnóstico
+						local gameplayFold = workspace:FindFirstChild("Gameplay")
+						local entities = gameplayFold and gameplayFold:FindFirstChild("Entities")
+						
+						if entities then
+							for _, entity in pairs(entities:GetDescendants()) do
+								if not AutoCash.Enabled then break end
 								
-								if name:find("cash") or name:find("money") or name:find("dollar") or name:find("bundle") or name:find("drop") or promptText:find("steal") then
-									
-									-- Intentar recolectar por el Remote principal
-									pcall(function()
-										game:GetService("ReplicatedStorage").Remote.PlayerFunc:InvokeServer("talkToMission", v)
-									end)
-
-									-- Intentar por el prompt si existe
-									if p and p.Enabled then
-										_G.firePrompt(p)
+								-- Buscamos el objeto de interacción del dinero
+								if entity.Name == "_Interaction" or entity.Name == "Cash" then
+									local prompt = entity:FindFirstChildWhichIsA("ProximityPrompt", true)
+									if prompt and (prompt.ActionText == "Steal" or prompt.Enabled) then
+										-- Recolectar
+										pcall(function()
+											_G.firePrompt(prompt)
+											-- Como respaldo usamos el remote talkToMission con el padre (Cash)
+											game:GetService("ReplicatedStorage").Remote.PlayerFunc:InvokeServer("talkToMission", entity.Parent)
+										end)
 									end
 								end
 							end
-							task.wait(0.1) -- Pausa breve entre carpetas
 						end
-						task.wait(1.5) -- Pausa larga entre ciclos de escaneo total
+						task.wait(1) -- Escaneo eficiente
 					end
 				end)
 			end
 		end,
-		Tooltip = "High-performance cash collector. No lag, maximum speed."
+		Tooltip = "Instantly collects all Reward Cash from the ground."
 	})
 
 	-- Función para verificar si tenemos el circuito
@@ -8167,14 +8157,28 @@ run(function()
 	-- Función de respaldo para ProximityPrompts (Global)
 	_G.firePrompt = function(p)
 		if not p then return end
+		local oldHold = p.HoldDuration
 		p.HoldDuration = 0 -- Forzar interacción instantánea
-		if fireproximityprompt then
-			fireproximityprompt(p)
-		end
-		-- Fallback agresivo (funciona en casi todos los exploits)
+		
+		-- 1. Método Exploit
+		if fireproximityprompt then fireproximityprompt(p) end
+		
+		-- 2. Método Simulación Teclado (Fuerza Bruta)
+		pcall(function()
+			local vim = game:GetService("VirtualInputManager")
+			local key = p.KeyboardKeyCode
+			vim:SendKeyEvent(true, key, false, game)
+			task.wait(0.05)
+			vim:SendKeyEvent(false, key, false, game)
+		end)
+
+		-- 3. Método Señales Internas
 		p:InputHoldBegin()
-		task.wait(0.1)
+		task.wait(0.05)
 		p:InputHoldEnd()
+		
+		-- Restaurar (opcional)
+		task.delay(1, function() p.HoldDuration = oldHold end)
 	end
 
 	-- Módulo para God Mode (Health Shield)
@@ -8283,89 +8287,97 @@ run(function()
 					return nil
 				end
 
+				-- Función para verificar cooldown global
+				local function onGlobalCooldown()
+					local var = game:GetService("ReplicatedStorage"):FindFirstChild("Variables")
+					local cooldown = var and var:FindFirstChild("RobberyAntiSpamCooldown")
+					return cooldown and cooldown.Value > 0
+				end
+
 				task.spawn(function()
 					while AutoFarmer.Enabled do
 						local foundATM = false
 						local lplr = game:GetService("Players").LocalPlayer
 						
-						for obj, t in pairs(blacklist) do
-							if tick() - t > 60 then blacklist[obj] = nil end
+						-- Si tenemos un cooldown global, esperamos
+						if onGlobalCooldown() then
+							warn("[Vape] Esperando Cooldown Global...")
+							while onGlobalCooldown() and AutoFarmer.Enabled do task.wait(1) end
 						end
 
-						-- Buscamos cualquier objeto llamado ATM en World.Interactive
+						for obj, t in pairs(blacklist) do
+							if tick() - t > 120 then blacklist[obj] = nil end
+						end
+
 						local folder = workspace:FindFirstChild("World")
 						if folder then folder = folder:FindFirstChild("Interactive") end
-						
 						if folder then
 							for _, obj in pairs(folder:GetChildren()) do
 								if not AutoFarmer.Enabled or foundATM then break end
 								
 								if obj.Name == "ATM" and not blacklist[obj] then
-									foundATM = true
-									warn("[Vape] Yendo a ATM: " .. obj.Name)
-									
-									local char = lplr.Character
-									local root = char and char:FindFirstChild("HumanoidRootPart")
-									if root then
-										-- 1. Teletransporte inicial (MUY CERCA)
-										char:PivotTo(obj:GetPivot() * CFrame.new(0, 0, -2))
-										task.wait(0.5)
-
-										-- 2. Verificar/Comprar Circuito
-										if not hasCircuit() then
-											warn("[Vape] Comprando circuito...")
-											local item = getBlackMarketItem()
-											if item then
-												game:GetService("ReplicatedStorage").Remote.PlayerFunc:InvokeServer("purchase", {isRestaurant = false, item = item})
-												task.wait(0.5)
+									-- COMPROBACIÓN PREVIA: ¿Tiene el botón de hackear disponible?
+									local robPrompt = nil
+									for _, p in pairs(obj:GetDescendants()) do
+										if p:IsA("ProximityPrompt") and p.Enabled then
+											if p.KeyboardKeyCode == Enum.KeyCode.F or (p.ActionText and p.ActionText:lower():find("hack")) then
+												robPrompt = p
+												break
 											end
 										end
+									end
 
-										-- 3. Equipar circuito (Asegurar que esté en la mano)
-										local circuit = lplr.Backpack:FindFirstChild("Decryption Circuit")
-										if circuit then circuit.Parent = lplr.Character end
-										task.wait(0.3)
+									-- Solo tpeamos si el botón existe y está habilitado
+									if robPrompt then
+										foundATM = true
+										warn("[Vape] ATM Válido Detectado. Teletransportando...")
+										
+										local char = lplr.Character
+										local root = char and char:FindFirstChild("HumanoidRootPart")
+										if root then
+											-- TP y mirada
+											char:PivotTo(robPrompt.Parent:GetPivot() * CFrame.new(0, 0, -1.5))
+											root.CFrame = CFrame.lookAt(root.Position, obj:GetPivot().Position)
+											task.wait(0.4)
 
-										-- 4. Buscar el botón de hackear (Tecla F)
-										local robPrompt = nil
-										local retry = 0
-										while not robPrompt and retry < 5 do
-											for _, p in pairs(obj:GetDescendants()) do
-												if p:IsA("ProximityPrompt") then
-													-- Buscamos por tecla F o por texto de robo/hack
-													local text = (p.ActionText or ""):lower()
-													if p.KeyboardKeyCode == Enum.KeyCode.F or text:find("rob") or text:find("hack") then
-														robPrompt = p
-														break
-													end
+											-- Verificar circuito
+											if not hasCircuit() then
+												local item = getBlackMarketItem()
+												if item then
+													game:GetService("ReplicatedStorage").Remote.PlayerFunc:InvokeServer("purchase", {isRestaurant = false, item = item})
+													task.wait(0.5)
 												end
 											end
-											if not robPrompt then task.wait(0.5) retry = retry + 1 end
-										end
 
-										-- 5. Ejecutar el robo
-										if robPrompt then
+											-- Interacción Fuerza Bruta
 											blacklist[obj] = tick()
-											warn("[Vape] Ejecutando Interacción (Tecla F)...")
+											warn("[Vape] Hackeando...")
 											
-											-- Forzamos distancia máxima por si acaso
-											robPrompt.MaxActivationDistance = 20 
-											task.wait(0.1)
-											
+											-- Bypass por exploit + Teclado Virtual
 											_G.firePrompt(robPrompt)
-											warn("[Vape] Robando... NO TE MUEVAS.")
-											task.wait(4.5)
-										else
-											warn("[Vape] No se pudo encontrar el botón de la F en " .. obj.Name)
-										end
+											pcall(function()
+												game:GetService("VirtualInputManager"):SendKeyEvent(true, Enum.KeyCode.F, false, game)
+												task.wait(0.1)
+												game:GetService("VirtualInputManager"):SendKeyEvent(false, Enum.KeyCode.F, false, game)
+											end)
 
-										-- 5. Regresar a zona segura
-										char:PivotTo(SafezonePos)
-										task.wait(2)
+											task.wait(4.5)
+											char:PivotTo(SafezonePos)
+											task.wait(2)
+										end
 									end
 								end
 							end
 						end
+
+						if not foundATM then task.wait(3) end
+						task.wait(0.5)
+					end
+				end)
+			end
+		end,
+		Tooltip = "The most advanced ATM farmer for San Aurie. Checks cooldowns and interact flawlessly."
+	})
 
 						if not foundATM then
 							task.wait(3)
