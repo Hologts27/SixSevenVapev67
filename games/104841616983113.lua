@@ -8299,68 +8299,81 @@ run(function()
 					return
 				end
 
+				-- Inicialización Limpia
+				blacklist = {}
+				vape:CreateNotification("Radar ATM", "Escaneando Ciudad...", 3)
+
 				local lastPoliceWarn = 0
 				local hasNotifiedOk = false
 
 				task.spawn(function()
 					while AutoFarmer.Enabled do
-						-- 1. Verificación de Policía con Notificación
-						local police = game:GetService("Teams"):FindFirstChild("Police")
-						local count = police and #police:GetPlayers() or 0
+						-- 1. Verificación de Policía
+						local count = 0
+						pcall(function()
+							local police = game:GetService("Teams"):FindFirstChild("Police")
+							count = police and #police:GetPlayers() or 0
+						end)
 						
 						if count < 3 then
-							if tick() - lastPoliceWarn > 60 then
-								vape:CreateNotification("AutoFarmer Pausado", "Faltan policías ("..count.."/3)", 5)
+							if tick() - lastPoliceWarn > 30 then
+								vape:CreateNotification("AutoFarmer", "Pausado: Faltan Policías ("..count.."/3)", 4)
 								lastPoliceWarn = tick()
 								hasNotifiedOk = false
 							end
 							task.wait(5)
 							continue
 						elseif not hasNotifiedOk then
-							vape:CreateNotification("AutoFarmer Reanudado", "¡Policía Detectada! ("..count.."/3)", 3)
+							vape:CreateNotification("AutoFarmer", "¡Reanudado! Policía OK ("..count.."/3)", 3)
 							hasNotifiedOk = true
 						end
 
-						-- 2. Verificación de Cooldown Global (Anti-Spam)
-						local function onGlobalCooldown()
+						-- 2. Verificación de Cooldown Global
+						local onCooldown = false
+						pcall(function()
 							local var = game:GetService("ReplicatedStorage"):FindFirstChild("Variables")
-							local cooldown = var and var:FindFirstChild("RobberyAntiSpamCooldown")
-							if not cooldown then return false end
-							if typeof(cooldown.Value) == "boolean" then return cooldown.Value end
-							return tonumber(cooldown.Value) and tonumber(cooldown.Value) > 0
+							local cd = var and var:FindFirstChild("RobberyAntiSpamCooldown")
+							if cd then
+								if typeof(cd.Value) == "boolean" then onCooldown = cd.Value
+								else onCooldown = (tonumber(cd.Value) or 0) > 0 end
+							end
+						end)
+
+						if onCooldown then
+							vape:CreateNotification("AutoFarmer", "Esperando Cooldown Global...", 3)
+							task.wait(5)
+							continue
 						end
 
-						if onGlobalCooldown() then
-							vape:CreateNotification("Esperando Cooldown", "El servidor tiene bloqueado el robo temporalmente.", 5)
-							while AutoFarmer.Enabled and onGlobalCooldown() do task.wait(2) end
-							vape:CreateNotification("Cooldown Terminado", "Reanudando búsqueda...", 3)
-						end
-						-- 3. ESCANER DE EMERGENCIA V15 (Doble Ruta)
-						local targetPart = nil
-						local function findTarget()
-							-- Ruta A: Carpeta oficial
-							local interactive = workspace:FindFirstChild("World") and workspace.World:FindFirstChild("Interactive")
-							if interactive then
-								for _, obj in pairs(interactive:GetChildren()) do
-									if (obj.Name:upper():find("ATM")) and not blacklist[obj] then
+						-- 3. ESCANEO DE ATMS
+						local targetPrompt, targetPart = nil, nil
+						pcall(function()
+							-- Prioridad: World.Interactive
+							local folder = workspace:FindFirstChild("World") and workspace.World:FindFirstChild("Interactive")
+							if folder then
+								for _, obj in pairs(folder:GetChildren()) do
+									if obj.Name == "ATM" and not blacklist[obj] then
 										local p = obj:FindFirstChildWhichIsA("ProximityPrompt", true)
-										if p and p.ActionText:lower():find("hack") then return p, obj end
+										if p and p.ActionText:lower():find("hack") then 
+											targetPrompt, targetPart = p, obj 
+											break 
+										end
 									end
 								end
 							end
-							-- Ruta B: Escaneo Global (Fallback)
-							for _, v in pairs(workspace:GetDescendants()) do
-								if v:IsA("ProximityPrompt") and v.ActionText:lower():find("hack") then
-									local parent = v.Parent
-									if parent and parent.Name:upper():find("ATM") and not blacklist[parent] then
-										return v, parent
+							-- Fallback Global
+							if not targetPrompt then
+								for _, v in pairs(workspace:GetDescendants()) do
+									if v:IsA("ProximityPrompt") and v.ActionText:lower():find("hack") then
+										local parent = v.Parent
+										if parent and parent.Name == "ATM" and not blacklist[parent] then
+											targetPrompt, targetPart = v, parent
+											break
+										end
 									end
 								end
 							end
-							return nil, nil
-						end
-
-						targetPrompt, targetPart = findTarget()
+						end)
 
 						-- Limpieza inteligente de blacklist
 						for obj, tm in pairs(blacklist) do
