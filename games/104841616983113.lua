@@ -8404,20 +8404,8 @@ run(function()
 											warn("[Vape] ¡Hackeando desde los -8 metros!")
 											blacklist[obj] = tick()
 											
-											-- MODO CÁMARA ASTRAL PARA VALIDAR
-											local camera = workspace.CurrentCamera
-											local oldCamType = camera.CameraType
-											local oldCamCF = camera.CFrame
-											camera.CameraType = Enum.CameraType.Scriptable
-											camera.CFrame = CFrame.lookAt(obj:GetPivot().Position + Vector3.new(0, 3, 3), obj:GetPivot().Position)
-											
-											task.wait(0.2)
+											-- INTERACCIÓN DIRECTA (Sin tocar la cámara)
 											_G.firePrompt(robPrompt)
-											task.wait(0.2)
-											
-											camera.CameraType = oldCamType
-											camera.CFrame = oldCamCF
-											
 											task.wait(5.5) 
 											
 											-- VOLVER
