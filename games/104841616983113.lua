@@ -8299,9 +8299,35 @@ run(function()
 					return
 				end
 
+				local lastPoliceWarn = 0
+				local hasNotifiedOk = false
+
 				task.spawn(function()
 					while AutoFarmer.Enabled do
-						local targetPrompt = nil
+						-- 1. Verificación de Policía con Notificación
+						local police = game:GetService("Teams"):FindFirstChild("Police")
+						local count = police and #police:GetPlayers() or 0
+						
+						if count < 3 then
+							if tick() - lastPoliceWarn > 60 then
+								vape.CustomNotification({
+									Title = "AutoFarmer Pausado",
+									Content = "No hay suficientes policías (Hay: "..count.."/3)",
+									Duration = 5
+								})
+								lastPoliceWarn = tick()
+								hasNotifiedOk = false
+							end
+							task.wait(5)
+							continue
+						elseif not hasNotifiedOk then
+							vape.CustomNotification({
+								Title = "AutoFarmer Reanudado",
+								Content = "¡Policía suficiente Detectada! ("..count.."/3)",
+								Duration = 3
+							})
+							hasNotifiedOk = true
+						end
 						-- Filtro ATM Estricto
 						local success, err = pcall(function()
 							for _, v in pairs(workspace:GetDescendants()) do
