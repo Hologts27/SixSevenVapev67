@@ -8379,17 +8379,6 @@ run(function()
 		Tooltip = "The most advanced ATM farmer for San Aurie. Checks cooldowns and interact flawlessly."
 	})
 
-						if not foundATM then
-							task.wait(3)
-						end
-						task.wait(0.5)
-					end
-				end)
-			end
-		end,
-		Tooltip = "The ultimate ATM farmer. Teleports, buys circuits, and robs automatically."
-	})
-
 	-- Módulo para Auto Lockpick
 	AutoLockpick = vape.Categories.World:CreateModule({
 		Name = "Auto Lockpick",
