@@ -8301,6 +8301,11 @@ run(function()
 				warn("[Vape] Iniciando Auto ATM Farmer V3 (Modo Parásito)...")
 				local blacklist = {}
 				
+				-- Forzar AutoCash para no perder dinero
+				if AutoCash and not AutoCash.Enabled then
+					task.spawn(function() AutoCash:Toggle() end)
+				end
+				
 				-- 1. Funciones de Apoyo (Inventario y Cooldown)
 				local function getBlackMarketItem()
 					local stuff = game:GetService("ReplicatedStorage"):FindFirstChild("Stuff")
@@ -8349,15 +8354,18 @@ run(function()
 
 				task.spawn(function()
 					while AutoFarmer.Enabled do
+						-- 1. Limpiar lista negra cada 3 minutos
+						for atm, tm in pairs(blacklist) do
+							if tick() - tm > 180 then blacklist[atm] = nil end
+						end
+
 						local foundATM = false
 						local lplr = game:GetService("Players").LocalPlayer
 						
-						-- Cooldown check
-						local var = game:GetService("ReplicatedStorage"):FindFirstChild("Variables")
-						local cooldown = var and var:FindFirstChild("RobberyAntiSpamCooldown")
-						if cooldown and (typeof(cooldown.Value) == "boolean" and cooldown.Value) then
-							warn("[Vape] Esperando Cooldown Global...")
-							while AutoFarmer.Enabled and cooldown.Value do task.wait(1) end
+						-- 2. Esperar si hay Cooldown Global del servidor
+						if onGlobalCooldown() then
+							warn("[Vape] Esperando Cooldown Global del Servidor...")
+							while AutoFarmer.Enabled and onGlobalCooldown() do task.wait(1) end
 						end
 
 						local folder = workspace:FindFirstChild("World")
@@ -8438,22 +8446,26 @@ run(function()
 												game:GetService("ReplicatedStorage").Remote.PlayerFunc:InvokeServer("talkToMission", targetPart)
 											end)
 											
-											task.wait(5.5)
+											task.wait(8.5)
 										else
-											warn("[Vape] No se encontró 'StartHack'. ¿Está el item comprado?")
-											task.wait(0.5)
+											warn("[Vape] ATM en cooldown o sin botón. Marcando como usado y saltando...")
+											blacklist[obj] = tick() -- Lo marcamos para no volver en 3 min
 										end
 
 										-- 3. Limpieza de este ciclo
 										cleanUpFarmer()
-										blacklist[obj] = tick()
 										char:PivotTo(SafezonePos)
-										task.wait(2.5)
+										task.wait(2)
 									end
 								end
 							end
 						end
-						task.wait(1)
+						
+						if not foundATM then
+							warn("[Vape] No hay ATMs disponibles ahora mismo. Reescaneando en 5s...")
+							task.wait(5)
+						end
+						task.wait(0.5)
 					end
 				end)
 			else
