@@ -8338,50 +8338,50 @@ run(function()
 									local char = lplr.Character
 									local root = char and char:FindFirstChild("HumanoidRootPart")
 									if root then
-										-- 1. Teletransporte inicial (Hacia el botón exacto)
+										-- 1. Teletransporte inicial
 										char:PivotTo(obj:GetPivot() * CFrame.new(0, 0, -2))
-										warn("[Vape] Llegamos al ATM. Esperando que carguen los botones...")
-										task.wait(1.2) -- Pausa necesaria para que el servidor muestre el botón
+										warn("[Vape] Llegamos. Iniciando Escaneo de Proximidad...")
+										task.wait(1.2) 
 
-										-- 2. Comprobar si el botón de hackear aparece
+										-- 2. ESCANEO DE PROXIMIDAD: Buscamos botones en un radio de 10 studs
 										local robPrompt = nil
-										for _, p in pairs(obj:GetDescendants()) do
-											if p:IsA("ProximityPrompt") and p.Enabled then
-												local text = (p.ActionText or ""):lower()
-												if p.KeyboardKeyCode == Enum.KeyCode.F or text:find("hack") or text:find("rob") then
-													robPrompt = p
-													break
+										for _, p in pairs(workspace:GetDescendants()) do
+											-- Solo miramos ProximityPrompts que estén cerca del jugador
+											if p:IsA("ProximityPrompt") then
+												if (p.Parent:GetPivot().Position - root.Position).Magnitude < 10 then
+													local text = (p.ActionText or ""):lower()
+													if p.KeyboardKeyCode == Enum.KeyCode.F or text:find("hack") or text:find("rob") then
+														robPrompt = p
+														break
+													end
 												end
 											end
 										end
 
-										-- 3. Si no hay botón, blacklisteamos y nos vamos
+										-- 3. Si no hay botón, blacklisteamos
 										if not robPrompt then
-											warn("[Vape] ATM vacío o en cooldown. Volviendo...")
+											warn("[Vape] No se detectó botón de hackear en el área. Saltando...")
 											blacklist[obj] = tick()
 											char:PivotTo(SafezonePos)
-											task.wait(1.5) -- Pausa de descanso
+											task.wait(1)
 											foundATM = false 
 										else
-											-- 4. Si hay botón, procedemos al robo
-											warn("[Vape] ¡Cajero activo! Iniciando hackeo...")
+											-- 4. Si hay botón, robamos
+											warn("[Vape] ¡Botón detectado!: " .. (robPrompt.ActionText or "Hack"))
 											blacklist[obj] = tick()
 											
-											-- Compra de circuito
 											if not hasCircuit() then
 												local item = getBlackMarketItem()
 												if item then
 													game:GetService("ReplicatedStorage").Remote.PlayerFunc:InvokeServer("purchase", {isRestaurant = false, item = item})
-													task.wait(0.8)
+													task.wait(0.5)
 												end
 											end
 
-											-- Interacción
 											_G.firePrompt(robPrompt)
-											task.wait(5) -- Tiempo de robo
+											task.wait(5) 
 											char:PivotTo(SafezonePos)
-											warn("[Vape] Robo completado. Descansando...")
-											task.wait(2.5) -- Pausa entre cajeros para evitar sospechas
+											task.wait(2)
 										end
 									end
 								end
