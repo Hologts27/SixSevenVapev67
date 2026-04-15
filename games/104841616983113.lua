@@ -8321,28 +8321,24 @@ run(function()
 							end
 							task.wait(5)
 						else
-							-- 2. ESCANEO FORENSE V21
+							-- 2. RADAR DE PRECISIÓN V24 (StartHack)
 							local targetPrompt, targetPart = nil, nil
 							pcall(function()
-								local allObjects = workspace:GetDescendants()
-								for _, v in pairs(allObjects) do
-									if v:IsA("ProximityPrompt") then
-										local act = v.ActionText:lower()
-										if act:find("hack") then
-											local current = v.Parent
-											for i = 1, 4 do
-												if current and current.Name:upper():find("ATM") then
-													if not blacklist[current] then
-														targetPrompt = v
-														targetPart = current
-														break
-													end
-												end
-												current = current.Parent
+								local entities = workspace:FindFirstChild("Gameplay") and workspace.Gameplay:FindFirstChild("Entities")
+								local searchArea = entities or workspace -- Si no está la carpeta, busca en todo
+								
+								for _, v in pairs(searchArea:GetDescendants()) do
+									if v:IsA("ProximityPrompt") and v.Enabled then
+										local pName = v.Parent.Name
+										if pName == "StartHack" or v.Name == "Mission" then
+											if not blacklist[v.Parent] then
+												vape:CreateNotification("AutoRob", "ATM Disponible!", 2)
+												targetPrompt = v
+												targetPart = v.Parent
+												break
 											end
 										end
 									end
-									if targetPrompt then break end
 								end
 							end)
 
