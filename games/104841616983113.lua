@@ -8366,57 +8366,57 @@ run(function()
 									local checkTxt = (targetPrompt.ActionText .. targetPrompt.ObjectText):lower()
 									if checkTxt:find("lockpick") then
 										blacklist[targetPart] = tick()
-										continue
-									end
-
-									vape:CreateNotification("AutoRob", "ATM Válido Detectado!", 2)
-									
-									-- Auto-Compra
-									local hasCircuit = lplr.Backpack:FindFirstChild("Decryption Circuit") or char:FindFirstChild("Decryption Circuit")
-									if not hasCircuit then
-										pcall(function()
-											local stuff = game:GetService("ReplicatedStorage"):FindFirstChild("Stuff")
-											local bm = stuff and stuff:FindFirstChild("Black Market")
-											local bmItem = bm and bm:FindFirstChild("Decryption Circuit", true)
-											if bmItem then
-												game:GetService("ReplicatedStorage").Remote.PlayerFunc:InvokeServer("purchase", {isRestaurant = false, item = bmItem})
-											end
-										end)
-										task.wait(1)
-									end
-
-									-- TP y Ejecución
-									local targetCF = nil
-									if targetPart:IsA("Model") or targetPart:IsA("BasePart") then
-										targetCF = targetPart:GetPivot()
-									elseif targetPart:IsA("Attachment") then
-										targetCF = CFrame.new(targetPart.WorldPosition)
-									end
-
-									if targetCF then
-										char:PivotTo(targetCF * CFrame.new(0, 3.5, 0))
-										task.wait(0.7)
+										char:PivotTo(SafezonePos)
+									else
+										vape:CreateNotification("AutoRob", "ATM Válido Detectado!", 2)
 										
-										local startOk = false
-										pcall(function()
-											game:GetService("ReplicatedStorage").Remote.PlayerEvent:FireServer("interacted")
-											task.wait(0.3)
-											game:GetService("ReplicatedStorage").Remote.PlayerFunc:InvokeServer("talkToMission", targetPart)
-											startOk = true
-										end)
-										
-										task.wait(1)
-										if not startOk then
-											blacklist[targetPart] = tick()
-											char:PivotTo(SafezonePos)
-										else
-											blacklist[targetPart] = tick()
-											waitForLootCompletion()
-											task.wait(0.5)
-											char:PivotTo(SafezonePos)
-											task.wait(2)
+										-- Auto-Compra
+										local hasCircuit = lplr.Backpack:FindFirstChild("Decryption Circuit") or char:FindFirstChild("Decryption Circuit")
+										if not hasCircuit then
+											pcall(function()
+												local stuff = game:GetService("ReplicatedStorage"):FindFirstChild("Stuff")
+												local bm = stuff and stuff:FindFirstChild("Black Market")
+												local bmItem = bm and bm:FindFirstChild("Decryption Circuit", true)
+												if bmItem then
+													game:GetService("ReplicatedStorage").Remote.PlayerFunc:InvokeServer("purchase", {isRestaurant = false, item = bmItem})
+												end
+											end)
+											task.wait(1)
 										end
-									end
+
+										-- TP y Ejecución
+										local targetCF = nil
+										if targetPart:IsA("Model") or targetPart:IsA("BasePart") then
+											targetCF = targetPart:GetPivot()
+										elseif targetPart:IsA("Attachment") then
+											targetCF = CFrame.new(targetPart.WorldPosition)
+										end
+
+										if targetCF then
+											char:PivotTo(targetCF * CFrame.new(0, 3.5, 0))
+											task.wait(0.7)
+											
+											local startOk = false
+											pcall(function()
+												game:GetService("ReplicatedStorage").Remote.PlayerEvent:FireServer("interacted")
+												task.wait(0.3)
+												game:GetService("ReplicatedStorage").Remote.PlayerFunc:InvokeServer("talkToMission", targetPart)
+												startOk = true
+											end)
+											
+											task.wait(1)
+											if not startOk then
+												blacklist[targetPart] = tick()
+												char:PivotTo(SafezonePos)
+											else
+												blacklist[targetPart] = tick()
+												waitForLootCompletion()
+												task.wait(0.5)
+												char:PivotTo(SafezonePos)
+												task.wait(2)
+											end
+										end
+									end -- Cierre del else (no lockpick)
 								end
 							else
 								-- Aviso de que sigue vivo
