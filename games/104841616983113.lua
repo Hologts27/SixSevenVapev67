@@ -8299,75 +8299,73 @@ run(function()
 					return
 				end
 
-				-- Inicialización Limpia
+				-- Inicialización V17
 				blacklist = {}
-				vape:CreateNotification("Radar ATM", "Escaneando Ciudad...", 3)
+				vape:CreateNotification("AutoFarmer V17", "Bio-Conectando con Celular...", 3)
 
 				local lastPoliceWarn = 0
+				local lastPhoneWarn = 0
 				local hasNotifiedOk = false
 
 				task.spawn(function()
 					while AutoFarmer.Enabled do
-						-- 1. Verificación de Policía
-						local count = 0
-						pcall(function()
-							local police = game:GetService("Teams"):FindFirstChild("Police")
-							count = police and #police:GetPlayers() or 0
-						end)
-						
-						if count < 3 then
+						-- 1. Check de Policía
+						local police = game:GetService("Teams"):FindFirstChild("Police")
+						local pCount = police and #police:GetPlayers() or 0
+						if pCount < 3 then
 							if tick() - lastPoliceWarn > 30 then
-								vape:CreateNotification("AutoFarmer", "Pausado: Faltan Policías ("..count.."/3)", 4)
+								vape:CreateNotification("Pausa: Policía", "Faltan oficiales ("..pCount.."/3)", 3)
 								lastPoliceWarn = tick()
-								hasNotifiedOk = false
 							end
-							task.wait(5)
-							continue
-						elseif not hasNotifiedOk then
-							vape:CreateNotification("AutoFarmer", "¡Reanudado! Policía OK ("..count.."/3)", 3)
-							hasNotifiedOk = true
+							task.wait(5) continue
 						end
 
-						-- 2. Verificación de Cooldown Global
-						local onCooldown = false
+						-- 2. Lectura del Cooldown del Celular (Dark Web)
+						local phoneLock = false
+						local phoneReason = ""
 						pcall(function()
-							local var = game:GetService("ReplicatedStorage"):FindFirstChild("Variables")
-							local cd = var and var:FindFirstChild("RobberyAntiSpamCooldown")
-							if cd then
-								if typeof(cd.Value) == "boolean" then onCooldown = cd.Value
-								else onCooldown = (tonumber(cd.Value) or 0) > 0 end
-							end
-						end)
-
-						if onCooldown then
-							vape:CreateNotification("AutoFarmer", "Esperando Cooldown Global...", 3)
-							task.wait(5)
-							continue
-						end
-
-						-- 3. ESCANEO DE ATMS
-						local targetPrompt, targetPart = nil, nil
-						pcall(function()
-							-- Prioridad: World.Interactive
-							local folder = workspace:FindFirstChild("World") and workspace.World:FindFirstChild("Interactive")
-							if folder then
-								for _, obj in pairs(folder:GetChildren()) do
-									if obj.Name == "ATM" and not blacklist[obj] then
-										local p = obj:FindFirstChildWhichIsA("ProximityPrompt", true)
-										if p and p.ActionText:lower():find("hack") then 
-											targetPrompt, targetPart = p, obj 
-											break 
-										end
-									end
+							local gui = lplr.PlayerGui:FindFirstChild("ScreenGui")
+							local dw = gui and gui:FindFirstChild("Dark Web", true)
+							if dw then
+								local locked = dw:FindFirstChild("Locked", true)
+								if locked and locked.Visible then
+									phoneLock = true
+									phoneReason = locked:FindFirstChildWhichIsA("TextLabel") and locked.TextLabel.Text or "Cooldown"
 								end
 							end
-							-- Fallback Global
-							if not targetPrompt then
-								for _, v in pairs(workspace:GetDescendants()) do
-									if v:IsA("ProximityPrompt") and v.ActionText:lower():find("hack") then
-										local parent = v.Parent
-										if parent and parent.Name == "ATM" and not blacklist[parent] then
-											targetPrompt, targetPart = v, parent
+						end)
+
+						if phoneLock then
+							if tick() - lastPhoneWarn > 30 then
+								vape:CreateNotification("Pausa: Celular", phoneReason, 4)
+								lastPhoneWarn = tick()
+							end
+							task.wait(5) continue
+						end
+
+						-- 3. ESCANEO SELECTIVO (Solo ATMs)
+						local targetPrompt, targetPart = nil, nil
+						pcall(function()
+							for _, v in pairs(workspace:GetDescendants()) do
+								if v:IsA("ProximityPrompt") then
+									local action = v.ActionText:lower()
+									local object = v.ObjectText:lower()
+									
+									if action:find("hack") or object:find("atm") then
+										-- Verificamos si es realmente un ATM (Ancestro Check)
+										local isRealAtm = false
+										local current = v.Parent
+										for i = 1, 3 do -- Miramos hasta 3 niveles arriba
+											if current and current.Name:upper():find("ATM") then
+												isRealAtm = true
+												targetPart = current
+												break
+											end
+											if current then current = current.Parent end
+										end
+
+										if isRealAtm and not blacklist[targetPart] then
+											targetPrompt = v
 											break
 										end
 									end
