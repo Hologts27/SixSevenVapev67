@@ -8391,22 +8391,22 @@ run(function()
 											for _, v in pairs(char:GetDescendants()) do if v:IsA("BasePart") then v.CanCollide = false end end
 										end)
 
-										-- 2. Radar de Interfaz (El secreto de San Aurie)
+										-- 2. Radar de Interfaz (Búsqueda Selectiva)
 										local robPrompt = nil
 										local startSearch = tick()
-										warn("[Vape] Escaneando Botones en PlayerGui...")
+										warn("[Vape] Buscando Gatillo de Robo (F)...")
 										
 										while tick() - startSearch < 3 and AutoFarmer.Enabled do
 											local guiFolder = lplr:FindFirstChild("PlayerGui")
 											if guiFolder then guiFolder = guiFolder:FindFirstChild("ProximityPrompts") end
 											
+											-- A: Buscar en la Interfaz (Prioritario)
 											if guiFolder then
 												for _, p in pairs(guiFolder:GetChildren()) do
-													if p:IsA("ProximityPrompt") then
-														local text = (p.ActionText or ""):lower()
+													if p:IsA("ProximityPrompt") and p.KeyboardKeyCode == Enum.KeyCode.F then
 														local name = p.Name:lower()
-														-- Prioridad a StartHack o texto de hackeo
-														if name:find("starthack") or text:find("hack") or text:find("rob") then
+														local text = (p.ActionText or ""):lower()
+														if name:find("hack") or text:find("hack") or text:find("rob") then
 															robPrompt = p
 															break
 														end
@@ -8414,10 +8414,16 @@ run(function()
 												end
 											end
 											
-											-- FALLBACK: Si no está en el GUI, buscamos en el modelo del cajero
+											-- B: Buscar en el Mundo (Fallback si no está en el GUI)
 											if not robPrompt then
 												for _, p in pairs(obj:GetDescendants()) do
-													if p:IsA("ProximityPrompt") then robPrompt = p break end
+													if p:IsA("ProximityPrompt") and p.KeyboardKeyCode == Enum.KeyCode.F then
+														local text = (p.ActionText or ""):lower()
+														if text:find("hack") or text:find("rob") then
+															robPrompt = p
+															break
+														end
+													end
 												end
 											end
 
