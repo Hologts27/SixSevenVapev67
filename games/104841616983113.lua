@@ -8335,33 +8335,36 @@ run(function()
 							while AutoFarmer.Enabled and onGlobalCooldown() do task.wait(2) end
 							vape:CreateNotification("Cooldown Terminado", "Reanudando búsqueda...", 3)
 						end
-						-- 3. Escaneo Directo de ATMs (Alta Fidelidad)
+						-- 3. ESCANER DE EMERGENCIA V15 (Doble Ruta)
 						local targetPart = nil
-						local interactive = workspace:FindFirstChild("World") and workspace.World:FindFirstChild("Interactive")
-						
-						if interactive then
-							for _, obj in pairs(interactive:GetChildren()) do
-								if obj.Name == "ATM" and not blacklist[obj] then
-									local prompt = obj:FindFirstChildWhichIsA("ProximityPrompt", true)
-									if prompt and (prompt.ActionText:find("Hack") or prompt.ObjectText:find("ATM")) then
-										targetPrompt = prompt
-										targetPart = obj
-										break
+						local function findTarget()
+							-- Ruta A: Carpeta oficial
+							local interactive = workspace:FindFirstChild("World") and workspace.World:FindFirstChild("Interactive")
+							if interactive then
+								for _, obj in pairs(interactive:GetChildren()) do
+									if (obj.Name:upper():find("ATM")) and not blacklist[obj] then
+										local p = obj:FindFirstChildWhichIsA("ProximityPrompt", true)
+										if p and p.ActionText:lower():find("hack") then return p, obj end
 									end
 								end
 							end
-						end
-
-						-- Limpieza inteligente de blacklist (Si el botón vuelve, se desbloquea)
-						for obj, tm in pairs(blacklist) do
-							if tick() - tm > 60 then 
-								blacklist[obj] = nil 
-							else
-								local prompt = obj:FindFirstChildWhichIsA("ProximityPrompt", true)
-								if prompt and prompt.ActionText:find("Hack") then
-									blacklist[obj] = nil -- Se ha reseteado el cooldown del servidor
+							-- Ruta B: Escaneo Global (Fallback)
+							for _, v in pairs(workspace:GetDescendants()) do
+								if v:IsA("ProximityPrompt") and v.ActionText:lower():find("hack") then
+									local parent = v.Parent
+									if parent and parent.Name:upper():find("ATM") and not blacklist[parent] then
+										return v, parent
+									end
 								end
 							end
+							return nil, nil
+						end
+
+						targetPrompt, targetPart = findTarget()
+
+						-- Limpieza inteligente de blacklist
+						for obj, tm in pairs(blacklist) do
+							if tick() - tm > 45 then blacklist[obj] = nil end
 						end
 
 						if targetPrompt and targetPart then
@@ -8369,52 +8372,38 @@ run(function()
 							local root = char and char:FindFirstChild("HumanoidRootPart")
 							
 							if root then
-								warn("[Vape] Objetivo ATM encontrado. Iniciando fase stealth...")
+								vape:CreateNotification("AutoFarmer", "Objetivo Localizado!", 2)
 								
-								-- 1. Preparación de Circuito (Compra Dinámica)
+								-- 1. Preparación de Circuito
 								local hasCircuit = lplr.Backpack:FindFirstChild("Decryption Circuit") or char:FindFirstChild("Decryption Circuit")
 								if not hasCircuit then
-									local bmItem = nil
 									local stuff = game:GetService("ReplicatedStorage"):FindFirstChild("Stuff")
 									local bm = stuff and stuff:FindFirstChild("Black Market")
-									if bm then
-										for _, v in pairs(bm:GetDescendants()) do
-											if v.Name:find("Decryption") and v.Name:find("Circuit") then
-												bmItem = v
-												break
-											end
-										end
-									end
+									local bmItem = bm and bm:FindFirstChild("Decryption Circuit", true)
 
 									if bmItem then
 										pcall(function() 
-											game:GetService("ReplicatedStorage").Remote.PlayerFunc:InvokeServer("purchase", {
-												isRestaurant = false, 
-												item = bmItem
-											}) 
+											game:GetService("ReplicatedStorage").Remote.PlayerFunc:InvokeServer("purchase", {isRestaurant = false, item = bmItem}) 
 										end)
-										vape:CreateNotification("AutoFarmer", "Circuito Comprado", 2)
 										task.wait(1)
 									end
 								end
 
-								-- 2. TP Encima
-								char:PivotTo(targetPart:GetPivot() * CFrame.new(0, 3, 0))
+								-- 2. TP Encima (Stealth)
+								char:PivotTo(targetPart:GetPivot() * CFrame.new(0, 3.5, 0))
 								
-								-- 3. VERIFICACIÓN DE FALLO (2 Segundos)
-								task.wait(0.8)
+								-- 3. Ejecución con Watchdog
+								task.wait(0.7)
 								local startOk = false
 								pcall(function()
 									game:GetService("ReplicatedStorage").Remote.PlayerEvent:FireServer("interacted")
-									task.wait(0.4)
+									task.wait(0.3)
 									game:GetService("ReplicatedStorage").Remote.PlayerFunc:InvokeServer("talkToMission", targetPart)
 									startOk = true
 								end)
 								
 								task.wait(1)
-								
 								if not startOk then
-									warn("[Vape] El cajero no responde. Abortando...")
 									blacklist[targetPart] = tick()
 									char:PivotTo(SafezonePos)
 									continue
@@ -8430,9 +8419,8 @@ run(function()
 								task.wait(2)
 							end
 						else
-							-- Solo avisar cada cierto tiempo para no llenar la consola
-							if tick() % 10 < 0.5 then
-								warn("[Vape] Buscando ATMs activos...")
+							if tick() % 15 < 0.5 then
+								warn("[Vape] Radar activo: Sin ATMs detectados en el área.")
 							end
 							task.wait(2)
 						end
