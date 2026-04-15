@@ -8410,24 +8410,24 @@ run(function()
 							while AutoFarmer.Enabled and onGlobalCooldown() do task.wait(1) end
 						end
 
-						-- 3. Búsqueda Directa de StartHack (SOLO CAJEROS)
+						-- 3. Búsqueda Agresiva de StartHack (Detección Universal)
 						local targetPart = nil
-						local interactiveFolder = workspace:FindFirstChild("World") and workspace.World:FindFirstChild("Interactive")
 						
+						-- Escaneamos TODOS los descendientes del juego
 						for _, v in pairs(workspace:GetDescendants()) do
 							if v.Name == "StartHack" and not blacklist[v] then
-								-- FILTRO CRÍTICO: ¿Está este StartHack cerca de un modelo de ATM?
-								local isRealATM = false
-								if interactiveFolder then
-									for _, obj in pairs(interactiveFolder:GetChildren()) do
-										if obj.Name == "ATM" and (v:GetPivot().Position - obj:GetPivot().Position).Magnitude < 10 then
-											isRealATM = true
+								-- Buscamos el ATM más cercano en un radio de 10 studs
+								local foundNearATM = false
+								for _, obj in pairs(workspace:GetDescendants()) do
+									if obj:IsA("Model") and obj.Name:find("ATM") then
+										if (v:GetPivot().Position - obj:GetPivot().Position).Magnitude < 10 then
+											foundNearATM = true
 											break
 										end
 									end
 								end
 								
-								if isRealATM then
+								if foundNearATM then
 									targetPart = v
 									break
 								end
