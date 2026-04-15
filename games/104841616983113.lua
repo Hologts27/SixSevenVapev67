@@ -8104,12 +8104,16 @@ run(function()
 			if callback then
 				task.spawn(function()
 					while AutoCash.Enabled do
-						for _, v in pairs(workspace:GetDescendants()) do
-							if v.Name == "CashDrop" then
-								-- Intentar recolectar vía Remote Function (visto en RemoteSpy)
+						-- Escaneamos en World donde suelen caer los drops
+						local world = workspace:FindFirstChild("World")
+						local targetFolder = world and world:FindFirstChild("Items") or workspace
+						
+						for _, v in pairs(targetFolder:GetDescendants()) do
+							if v.Name:find("Cash") or v.Name:find("Money") or v.Name == "CashDrop" then
+								-- Intentar recolectar vía Remote Function
 								game:GetService("ReplicatedStorage").Remote.PlayerFunc:InvokeServer("talkToMission", v)
 								
-								-- Intentar recolectar vía Prompt por si acaso
+								-- Fallback con Prompt
 								local prompt = v:FindFirstChildWhichIsA("ProximityPrompt", true)
 								if prompt and prompt.Enabled then
 									firePrompt(prompt)
@@ -8138,7 +8142,7 @@ run(function()
 					SafezonePos = root.CFrame
 					warn("[Vape] Zona segura guardada.")
 				end
-				return false -- Se apaga solo automáticamente
+				return false
 			end
 		end,
 		Tooltip = "Saves your current position as the safe spot."
@@ -8155,14 +8159,20 @@ run(function()
 					return
 				end
 
-				warn("[Vape] Iniciando escaneo de ATMs...")
+				warn("[Vape] Buscando ATMs en World.Interactive.ATMs...")
 				task.spawn(function()
 					while AutoFarmer.Enabled do
 						local foundRobbable = false
-						for _, obj in pairs(workspace:GetDescendants()) do
+						-- Buscamos en la ruta específica para máxima velocidad
+						local atmsFolder = workspace:FindFirstChild("World")
+						if atmsFolder then atmsFolder = atmsFolder:FindFirstChild("Interactive") end
+						if atmsFolder then atmsFolder = atmsFolder:FindFirstChild("ATMs") end
+						
+						local list = atmsFolder and atmsFolder:GetChildren() or workspace:GetDescendants()
+
+						for _, obj in pairs(list) do
 							if not AutoFarmer.Enabled then break end
 							
-							-- Búsqueda agresiva: cualquier objeto que contenga "ATM"
 							if obj.Name:upper():find("ATM") then
 								local prompt = obj:FindFirstChild("Mission", true) or obj:FindFirstChildWhichIsA("ProximityPrompt", true)
 								
@@ -8170,30 +8180,25 @@ run(function()
 									foundRobbable = true
 									local root = lplr.Character and lplr.Character:FindFirstChild("HumanoidRootPart")
 									if root then
-										warn("[Vape] Objetivo encontrado: " .. obj.Name)
-										warn("[Vape] Teletransportando...")
+										warn("[Vape] Robando: " .. obj.Name)
 										
-										-- TP al modelo
-										local targetPos = obj:IsA("Model") and obj:GetModelCFrame() or (obj:IsA("BasePart") and obj.CFrame or nil)
-										if targetPos then
-											root.CFrame = targetPos * CFrame.new(0, 0, -4)
-											task.wait(0.5)
-											
-											warn("[Vape] Interactuando...")
-											firePrompt(prompt)
-											task.wait(3.5) -- Tiempo para ganar y recoger
-											
-											warn("[Vape] Volviendo a zona segura.")
-											root.CFrame = SafezonePos
-											task.wait(3)
-										end
+										-- TP usando Pivot para evitar detección básica
+										local targetCF = obj:GetModelCFrame() * CFrame.new(0, 0, -4)
+										lplr.Character:PivotTo(targetCF)
+										task.wait(0.5)
+										
+										firePrompt(prompt)
+										task.wait(3.5)
+										
+										warn("[Vape] Volviendo a zona segura.")
+										lplr.Character:PivotTo(SafezonePos)
+										task.wait(3)
 									end
 								end
 							end
 						end
 
 						if not foundRobbable then
-							-- warn("[Vape] Buscando cajeros activos...")
 							task.wait(5)
 						end
 						task.wait(0.5)
@@ -8201,7 +8206,7 @@ run(function()
 				end)
 			end
 		end,
-		Tooltip = "Teleports to any ATM and robs it automatically."
+		Tooltip = "Teleports to ATMs in specific folder and robs them."
 	})
 
 	-- Módulo para Auto Lockpick
