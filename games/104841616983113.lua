@@ -8310,40 +8310,61 @@ run(function()
 						
 						if count < 3 then
 							if tick() - lastPoliceWarn > 60 then
-								vape.CustomNotification({
-									Title = "AutoFarmer Pausado",
-									Content = "No hay suficientes policías (Hay: "..count.."/3)",
-									Duration = 5
-								})
+								vape:CreateNotification("AutoFarmer Pausado", "Faltan policías ("..count.."/3)", 5)
 								lastPoliceWarn = tick()
 								hasNotifiedOk = false
 							end
 							task.wait(5)
 							continue
 						elseif not hasNotifiedOk then
-							vape.CustomNotification({
-								Title = "AutoFarmer Reanudado",
-								Content = "¡Policía suficiente Detectada! ("..count.."/3)",
-								Duration = 3
-							})
+							vape:CreateNotification("AutoFarmer Reanudado", "¡Policía Detectada! ("..count.."/3)", 3)
 							hasNotifiedOk = true
 						end
-						-- Filtro ATM Estricto
-						local success, err = pcall(function()
-							for _, v in pairs(workspace:GetDescendants()) do
-								if v:IsA("ProximityPrompt") and v.ActionText:find("Hack") then
-									local parent = v.Parent
-									-- Solo aceptamos si el padre es un "ATM"
-									if parent and parent.Name == "ATM" and not blacklist[parent] then
-										targetPrompt = v
+
+						-- 2. Verificación de Cooldown Global (Anti-Spam)
+						local function onGlobalCooldown()
+							local var = game:GetService("ReplicatedStorage"):FindFirstChild("Variables")
+							local cooldown = var and var:FindFirstChild("RobberyAntiSpamCooldown")
+							if not cooldown then return false end
+							if typeof(cooldown.Value) == "boolean" then return cooldown.Value end
+							return tonumber(cooldown.Value) and tonumber(cooldown.Value) > 0
+						end
+
+						if onGlobalCooldown() then
+							vape:CreateNotification("Esperando Cooldown", "El servidor tiene bloqueado el robo temporalmente.", 5)
+							while AutoFarmer.Enabled and onGlobalCooldown() do task.wait(2) end
+							vape:CreateNotification("Cooldown Terminado", "Reanudando búsqueda...", 3)
+						end
+						-- 3. Escaneo Directo de ATMs (Alta Fidelidad)
+						local targetPart = nil
+						local interactive = workspace:FindFirstChild("World") and workspace.World:FindFirstChild("Interactive")
+						
+						if interactive then
+							for _, obj in pairs(interactive:GetChildren()) do
+								if obj.Name == "ATM" and not blacklist[obj] then
+									local prompt = obj:FindFirstChildWhichIsA("ProximityPrompt", true)
+									if prompt and (prompt.ActionText:find("Hack") or prompt.ObjectText:find("ATM")) then
+										targetPrompt = prompt
+										targetPart = obj
 										break
 									end
 								end
 							end
-						end)
+						end
 
-						if targetPrompt then
-							local targetPart = targetPrompt.Parent
+						-- Limpieza inteligente de blacklist (Si el botón vuelve, se desbloquea)
+						for obj, tm in pairs(blacklist) do
+							if tick() - tm > 60 then 
+								blacklist[obj] = nil 
+							else
+								local prompt = obj:FindFirstChildWhichIsA("ProximityPrompt", true)
+								if prompt and prompt.ActionText:find("Hack") then
+									blacklist[obj] = nil -- Se ha reseteado el cooldown del servidor
+								end
+							end
+						end
+
+						if targetPrompt and targetPart then
 							local char = lplr.Character
 							local root = char and char:FindFirstChild("HumanoidRootPart")
 							
@@ -8372,10 +8393,8 @@ run(function()
 												item = bmItem
 											}) 
 										end)
-										warn("[Vape] Decryption Circuit comprado automáticamente.")
-										task.wait(1.2)
-									else
-										warn("[Vape] ¡ERROR! No se encontró el Circuito en el Mercado Negro.")
+										vape:CreateNotification("AutoFarmer", "Circuito Comprado", 2)
+										task.wait(1)
 									end
 								end
 
@@ -8383,18 +8402,17 @@ run(function()
 								char:PivotTo(targetPart:GetPivot() * CFrame.new(0, 3, 0))
 								
 								-- 3. VERIFICACIÓN DE FALLO (2 Segundos)
-								task.wait(1)
+								task.wait(0.8)
 								local startOk = false
-								local hackAttempt = pcall(function()
+								pcall(function()
 									game:GetService("ReplicatedStorage").Remote.PlayerEvent:FireServer("interacted")
 									task.wait(0.4)
 									game:GetService("ReplicatedStorage").Remote.PlayerFunc:InvokeServer("talkToMission", targetPart)
 									startOk = true
 								end)
 								
-								task.wait(1) -- Tiempo total: 2s aprox
+								task.wait(1)
 								
-								-- Si por alguna razón el servidor no responde o el botón sigue ahí parado
 								if not startOk then
 									warn("[Vape] El cajero no responde. Abortando...")
 									blacklist[targetPart] = tick()
@@ -8412,10 +8430,12 @@ run(function()
 								task.wait(2)
 							end
 						else
-							task.wait(3)
+							-- Solo avisar cada cierto tiempo para no llenar la consola
+							if tick() % 10 < 0.5 then
+								warn("[Vape] Buscando ATMs activos...")
+							end
+							task.wait(2)
 						end
-						-- Limpiar blacklist
-						for part, tm in pairs(blacklist) do if tick() - tm > 120 then blacklist[part] = nil end end
 					end
 				end)
 			else
