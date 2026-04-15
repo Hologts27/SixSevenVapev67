@@ -8386,12 +8386,12 @@ run(function()
 											task.wait(1)
 										end
 
-										-- 3. Secuencia Flash & Hide (V40)
-										local baseCF = targetPart:IsA("Model") and targetPart:GetPivot() or targetPart.CFrame
-										local surfacePos = baseCF * CFrame.new(0, 0, 2.8)
-										local hidePos = baseCF * CFrame.new(0, -9, 0)
+										-- 3. Secuencia Flash & Hide (V43 - CLEAN V18)
+										local basePos = (targetPart:IsA("Model") and targetPart:GetPivot().Position) or (targetPart:IsA("BasePart") and targetPart.Position) or (targetPart:IsA("Attachment") and targetPart.WorldPosition)
+										local surfacePos = CFrame.new(basePos.X, basePos.Y, basePos.Z + 2.5)
+										local hidePos = CFrame.new(basePos.X, basePos.Y - 9, basePos.Z)
 										
-										-- Noclip Activo durante el Robo
+										-- Noclip Activo
 										local noclipLoop = game:GetService("RunService").Stepped:Connect(function()
 											if char then
 												for _, p in pairs(char:GetDescendants()) do
@@ -8400,40 +8400,27 @@ run(function()
 											end
 										end)
 
-										if surfacePos then
-											root.Anchored = true
-											-- Fase 1: Flash (Aparecer)
-											root.CFrame = surfacePos
-											task.wait(0.4)
-											
-											-- Fase 2: Hackear
-											local startOk = false
-											pcall(function()
-												game:GetService("ReplicatedStorage").Remote.PlayerEvent:FireServer("interacted")
-												task.wait(0.3)
-												game:GetService("ReplicatedStorage").Remote.PlayerFunc:InvokeServer("talkToMission", targetPart)
-												startOk = true
-											end)
-											
-											task.wait(0.5) -- Espera de seguridad para asentar el hackeo
-											
-											-- Fase 3: Hide (Inmersión)
-											root.CFrame = hidePos
-											
-											if not startOk then
-												blacklist[targetPart] = tick()
-												noclipLoop:Disconnect()
-												char:PivotTo(SafezonePos)
-											else
-												blacklist[targetPart] = tick()
-												waitForLootCompletion() -- Recoge desde el búnker
-												task.wait(0.5)
-												noclipLoop:Disconnect()
-												char:PivotTo(SafezonePos)
-												task.wait(1.5)
-											end
-											root.Anchored = false
-										end
+										root.Anchored = true
+										root.CFrame = surfacePos -- 1. FLASH
+										task.wait(0.4)
+										
+										pcall(function() -- 2. HACK
+											game:GetService("ReplicatedStorage").Remote.PlayerEvent:FireServer("interacted")
+											task.wait(0.3)
+											game:GetService("ReplicatedStorage").Remote.PlayerFunc:InvokeServer("talkToMission", targetPart)
+										end)
+										
+										task.wait(0.5)
+										root.CFrame = hidePos -- 3. HIDE
+										
+										blacklist[targetPart] = tick()
+										waitForLootCompletion() -- 4. COLLECT
+										
+										task.wait(0.5)
+										noclipLoop:Disconnect() -- 5. CLEANUP
+										char:PivotTo(SafezonePos)
+										root.Anchored = false
+										task.wait(1.5)
 									end -- Cierre del else (no lockpick)
 								end
 							else
