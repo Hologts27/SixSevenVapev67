@@ -8310,25 +8310,25 @@ run(function()
 							-- 1. Check de Policía (DESACTIVADO PARA VALIDAR RADAR)
 							local pCount = 3 -- Simulación de seguridad
 
-							-- 2. RADAR DE ESPECTRO COMPLETO V28
+							-- 2. RADAR OPTIMIZADO V31
 							local targetPrompt, targetPart = nil, nil
-							pcall(function()
-								for _, v in pairs(workspace:GetDescendants()) do
-									if v:IsA("ProximityPrompt") and v.Enabled then
-										local txt = (v.ActionText .. v.ObjectText .. v.Parent.Name):lower()
-										
-										-- Criterio de Búsqueda Flexible
-										if txt:find("hack") or txt:find("decryption") or txt:find("starthack") then
-											if not blacklist[v.Parent] and not txt:find("npc") then
-												-- warn("[Vape] Objetivo potencial visto: " .. v.Parent.Name)
-												targetPrompt = v
-												targetPart = v.Parent
-												break
+							if not lastScanTime or tick() - lastScanTime > 1.5 then
+								lastScanTime = tick()
+								pcall(function()
+									for _, v in pairs(workspace:GetDescendants()) do
+										if v:IsA("ProximityPrompt") and v.Enabled then
+											local txt = (v.ActionText .. v.ObjectText .. v.Parent.Name):lower()
+											if txt:find("hack") or txt:find("decryption") or txt:find("starthack") then
+												if not blacklist[v.Parent] and not txt:find("npc") and not txt:find("yacht") then
+													targetPrompt = v
+													targetPart = v.Parent
+													break
+												end
 											end
 										end
 									end
-								end
-							end)
+								end)
+							end
 
 							-- Limpieza inteligente de blacklist
 							for obj, tm in pairs(blacklist) do
