@@ -8089,33 +8089,66 @@ run(function()
 			if callback then
 				task.spawn(function()
 					while AutoCash.Enabled do
-						-- Escaneamos en World donde suelen caer los drops
-						local world = workspace:FindFirstChild("World")
-						local targetFolder = world and world:FindFirstChild("Items") or workspace
+						-- Carpetas candidatas donde suele estar el loot
+						local searchFolders = {
+							workspace:FindFirstChild("World"),
+							workspace:FindFirstChild("Gameplay"),
+							workspace
+						}
 						
-						for _, v in pairs(targetFolder:GetDescendants()) do
+						for _, folder in pairs(searchFolders) do
+							if not folder then continue end
 							if not AutoCash.Enabled then break end
-							local name = v.Name:lower()
-							if name:find("cash") or name:find("money") or name:find("dollar") or name:find("drop") or name:find("bundle") then
-								-- Intentar recolectar vía Remote Event (Reportado por usuario)
-								game:GetService("ReplicatedStorage").Remote.PlayerEvent:FireServer("interacted")
+							
+							for _, v in pairs(folder:GetDescendants()) do
+								if not AutoCash.Enabled then break end
 								
-								-- Intentar recolectar vía Remote Function
-								game:GetService("ReplicatedStorage").Remote.PlayerFunc:InvokeServer("talkToMission", v)
+								local isMoney = false
+								local name = v.Name:lower()
 								
-								-- Fallback con Prompt
-								local prompt = v:FindFirstChildWhichIsA("ProximityPrompt", true)
-								if prompt and prompt.Enabled then
-									_G.firePrompt(prompt)
+								-- Detección por nombre
+								if name:find("cash") or name:find("money") or name:find("dollar") or name:find("drop") or name:find("bundle") or name:find("collect") then
+									isMoney = true
+								end
+								
+								-- Detección por BillboardGui (Texto flotante de "Cash")
+								if not isMoney then
+									local bgui = v:FindFirstChildWhichIsA("BillboardGui", true)
+									if bgui then
+										for _, txt in pairs(bgui:GetDescendants()) do
+											if txt:IsA("TextLabel") and (txt.Text:lower():find("cash") or txt.Text:find("[$]")) then
+												isMoney = true
+												break
+											end
+										end
+									end
+								end
+
+								if isMoney then
+									-- Intentar recolectar vía Remote Function (Principal en San Aurie)
+									pcall(function()
+										game:GetService("ReplicatedStorage").Remote.PlayerFunc:InvokeServer("talkToMission", v)
+									end)
+									
+									-- Intentar recolectar vía Remote Event (Fallback)
+									pcall(function()
+										game:GetService("ReplicatedStorage").Remote.PlayerEvent:FireServer("interacted", v)
+									end)
+									
+									-- Intentar via ProximityPrompt si existe
+									local prompt = v:FindFirstChildWhichIsA("ProximityPrompt", true)
+									if prompt and prompt.Enabled then
+										_G.firePrompt(prompt)
+									end
 								end
 							end
 						end
-						task.wait(0.5)
+						task.wait(1) -- Escaneo cada segundo para no laggear
 					end
 				end)
 			end
 		end,
-		Tooltip = "Automatically picks up cash from the ground."
+		Tooltip = "Automatically picks up cash from the ground using advanced scanning."
 	})
 
 	-- Función para verificar si tenemos el circuito
@@ -8152,25 +8185,60 @@ run(function()
 		end
 	end
 
-	-- Módulo para No Fall Damage
-	vape.Categories.World:CreateModule({
-		Name = "No Fall Damage",
+	-- Módulo para God Mode (Health Shield)
+	local GodMode = {Enabled = false}
+	GodMode = vape.Categories.World:CreateModule({
+		Name = "God Mode",
 		Function = function(callback)
+			GodMode.Enabled = callback
 			if callback then
 				task.spawn(function()
-					while task.wait(1) do
+					local lastHealth = lplr.Character and lplr.Character:FindFirstChild("Humanoid") and lplr.Character.Humanoid.Health or 100
+					while GodMode.Enabled do
 						local char = lplr.Character
-						if char and char:FindFirstChild("Humanoid") then
-							-- Deshabilitamos los estados que suelen activar el daño o el ragdoll por caída
-							char.Humanoid:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
-							char.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, false)
+						local hum = char and char:FindFirstChild("Humanoid")
+						if hum then
+							if hum.Health < lastHealth then
+								hum.Health = lastHealth -- Intento de restaurar vida localmente
+							end
+							lastHealth = hum.Health
 						end
-						if not callback then break end
+						task.wait()
 					end
 				end)
 			end
 		end,
-		Tooltip = "Disables fall damage and ragdolling when landing."
+		Tooltip = "Attempts to prevent health reduction."
+	})
+
+	-- Módulo para No Fall Damage (Advanced)
+	local NoFall = {Enabled = false}
+	NoFall = vape.Categories.World:CreateModule({
+		Name = "No Fall Damage",
+		Function = function(callback)
+			NoFall.Enabled = callback
+			if callback then
+				task.spawn(function()
+					while NoFall.Enabled do
+						local char = lplr.Character
+						local root = char and char:FindFirstChild("HumanoidRootPart")
+						if root and root.AssemblyLinearVelocity.Y < -50 then
+							-- Si caemos muy rápido, detectamos el suelo
+							local ray = Ray.new(root.Position, Vector3.new(0, -15, 0))
+							local part = workspace:FindPartOnRayWithIgnoreList(ray, {char})
+							if part then
+								-- Justo antes de tocar el suelo, neutralizamos la velocidad
+								root.AssemblyLinearVelocity = Vector3.new(root.AssemblyLinearVelocity.X, 0, root.AssemblyLinearVelocity.Z)
+								warn("[Vape] Impacto de caída neutralizado.")
+								task.wait(0.5)
+							end
+						end
+						task.wait(0.1)
+					end
+				end)
+			end
+		end,
+		Tooltip = "Neutralizes vertical velocity before impact to avoid fall damage."
 	})
 
 	-- Módulo para Auto ATM Farmer
@@ -8215,8 +8283,8 @@ run(function()
 						local world = workspace:FindFirstChild("World")
 						local interactive = world and world:FindFirstChild("Interactive")
 						
-						-- Si no hay folder Interactive, buscamos en todo el World o Workspace
-						local list = (interactive and interactive:GetChildren()) or (world and world:GetDescendants()) or workspace:GetDescendants()
+						-- IMPORTANTE: Usamos GetDescendants para encontrar ATMs dentro de subcarpetas (como ATMs/)
+						local list = (interactive and interactive:GetDescendants()) or (world and world:GetDescendants()) or workspace:GetDescendants()
 
 						for _, obj in pairs(list) do
 							if not AutoFarmer.Enabled then break end
