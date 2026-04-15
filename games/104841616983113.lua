@@ -8092,21 +8092,15 @@ run(function()
 			if callback then
 				task.spawn(function()
 					while AutoCash.Enabled do
-						-- El dinero aparece en Entities
-						local entities = workspace:FindFirstChild("Gameplay") and workspace.Gameplay:FindFirstChild("Entities")
-						if entities then
-							for _, v in pairs(entities:GetChildren()) do
-								if v.Name == "CashDrop" and v:FindFirstChild("Interaction") then
-									local prompt = v.Interaction:FindFirstChild("CashDrop")
-									if prompt then
-										game:GetService("ReplicatedStorage").Remote.PlayerFunc:InvokeServer("cashDrop", prompt)
-										warn("[Vape] Dinero recogido automáticamente.")
-										task.wait(0.1)
-									end
-								end
+						-- Escaneamos cualquier objeto CashDrop en el mundo
+						for _, v in pairs(workspace:GetDescendants()) do
+							if v.Name == "CashDrop" and v:IsA("ProximityPrompt") and v.Enabled then
+								fireproximityprompt(v)
+								-- warn("[Vape] Dinero recolectado vía Prompt.")
+								task.wait(0.1)
 							end
 						end
-						task.wait(1)
+						task.wait(0.5)
 					end
 				end)
 			end
@@ -8117,23 +8111,24 @@ run(function()
 	-- Módulo para Auto ATM Farmer
 	local AutoFarmer = {Enabled = false}
 	local SafezonePos = nil
+	local SetSafezoneMod = nil
 	
-	-- Botón para guardar la zona segura
-	vape.Categories.World:CreateModule({
+	SetSafezoneMod = vape.Categories.World:CreateModule({
 		Name = "Set AutoRob Safezone",
 		Function = function(callback)
 			if callback then
 				local root = lplr.Character and lplr.Character:FindFirstChild("HumanoidRootPart")
 				if root then
 					SafezonePos = root.CFrame
-					warn("[Vape] Zona segura guardada en: " .. tostring(root.Position))
+					warn("[Vape] Zona segura guardada.")
 				end
-				task.wait(0.1)
-				-- Se apaga solo después de guardar
-				return false 
+				task.spawn(function()
+					task.wait(0.1)
+					SetSafezoneMod.ToggleButton(false)
+				end)
 			end
 		end,
-		Tooltip = "Saves your current position as the safe spot to return to after robbing."
+		Tooltip = "Saves your current position as the safe spot."
 	})
 
 	AutoFarmer = vape.Categories.World:CreateModule({
@@ -8142,43 +8137,34 @@ run(function()
 			AutoFarmer.Enabled = callback
 			if callback then
 				if not SafezonePos then
-					warn("[Vape] ¡ERROR! Primero debes marcar una zona segura con 'Set AutoRob Safezone'.")
+					warn("[Vape] ¡ERROR! Usa 'Set AutoRob Safezone' primero.")
 					AutoFarmer.ToggleButton(false)
 					return
 				end
 
 				task.spawn(function()
 					while AutoFarmer.Enabled do
-						local atms = workspace:FindFirstChild("World") and workspace.World:FindFirstChild("Interactive") and workspace.World.Interactive:FindFirstChild("ATMs")
+						-- Escaneo dinámico de ATMs por si la ruta cambió
 						local foundRobbable = false
-
-						if atms then
-							for _, atm in pairs(atms:GetChildren()) do
-								if not AutoFarmer.Enabled then break end
+						for _, obj in pairs(workspace:GetDescendants()) do
+							if not AutoFarmer.Enabled then break end
+							
+							-- Buscamos el modelo ATM que tenga el prompt de Mission
+							if obj.Name == "ATM" and obj:IsA("Model") then
+								local prompt = obj:FindFirstChild("Mission", true) or obj:FindFirstChildWhichIsA("ProximityPrompt", true)
 								
-								-- Buscamos el prompt de robo (Mission)
-								local prompt = atm:FindFirstChildWhichIsA("ProximityPrompt", true)
-								if prompt and prompt.Name == "Mission" and prompt.Enabled then
+								if prompt and prompt.Enabled and (prompt.Name == "Mission" or prompt.ActionText:find("Rob")) then
 									foundRobbable = true
 									local root = lplr.Character and lplr.Character:FindFirstChild("HumanoidRootPart")
 									if root then
-										-- 1. TP al Cajero
-										warn("[Vape] Teletransportando al cajero: " .. atm.Name)
-										root.CFrame = atm.PrimaryPart and atm.PrimaryPart.CFrame or atm:GetModelCFrame()
+										warn("[Vape] Yendo a: " .. obj.Name)
+										root.CFrame = obj:GetModelCFrame() * CFrame.new(0, 0, -3) -- Un poco delante
 										task.wait(0.5)
 										
-										-- 2. Interactuar
 										fireproximityprompt(prompt)
+										task.wait(2.5) -- Tiempo para ganar + recoger
 										
-										-- 3. Esperar a que se complete el robo (nuestro hack lo hará instantáneo)
-										-- Esperamos un momento para que el dinero caiga y el AutoCash lo recoja
-										task.wait(2) 
-										
-										-- 4. Regresar a zona segura
-										warn("[Vape] Robo completado. Regresando a zona segura...")
 										root.CFrame = SafezonePos
-										
-										-- 5. Esperar cooldown entre robos para evitar sospechas (o para que el servidor procese)
 										task.wait(3)
 									end
 								end
@@ -8186,15 +8172,15 @@ run(function()
 						end
 
 						if not foundRobbable then
-							warn("[Vape] No hay cajeros disponibles. Esperando regeneración...")
-							task.wait(10)
+							-- warn("[Vape] Esperando ATMs...")
+							task.wait(5)
 						end
-						task.wait(1)
+						task.wait(0.5)
 					end
 				end)
 			end
 		end,
-		Tooltip = "Teleports to ATMs, robs them, and returns to safezone automatically."
+		Tooltip = "TP Robber for ATMs."
 	})
 
 	-- Módulo para Auto Lockpick
@@ -8224,6 +8210,38 @@ run(function()
 			end
 		end,
 		Tooltip = "Instantly buys a Lockpick Device from the Black Market."
+	})
+
+	-- Módulo para Interacción Instantánea
+	local InstantInteract = {Enabled = false}
+	InstantInteract = vape.Categories.World:CreateModule({
+		Name = "Instant Interact",
+		Function = function(callback)
+			InstantInteract.Enabled = callback
+			if callback then
+				local function makeInstant(v)
+					if v:IsA("ProximityPrompt") then
+						v.HoldDuration = 0
+					end
+				end
+				
+				-- Aplicar a los existentes
+				for _, v in pairs(workspace:GetDescendants()) do
+					makeInstant(v)
+				end
+				
+				-- Aplicar a nuevos
+				local conn = workspace.DescendantAdded:Connect(makeInstant)
+				
+				task.spawn(function()
+					while InstantInteract.Enabled do
+						task.wait(2)
+					end
+					conn:Disconnect()
+				end)
+			end
+		end,
+		Tooltip = "Removes the hold duration from all ProximityPrompts."
 	})
 end)
 	
