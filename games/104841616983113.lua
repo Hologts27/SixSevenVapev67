@@ -8021,8 +8021,8 @@ run(function()
 					local lplr = game:GetService("Players").LocalPlayer
 					local PlayerGui = lplr:WaitForChild("PlayerGui")
 					
-					-- Función de respaldo para ProximityPrompts
-					local function firePrompt(p)
+					-- Función de respaldo para ProximityPrompts (Global)
+					_G.firePrompt = function(p)
 						if not p then return end
 						if fireproximityprompt then
 							fireproximityprompt(p)
@@ -8032,6 +8032,7 @@ run(function()
 							p:InputHoldEnd()
 						end
 					end
+					local firePrompt = _G.firePrompt
 					
 					-- Auto ATM & Lockpick (GOD MODE - REFINADO)
 					task.spawn(function()
@@ -8087,6 +8088,19 @@ run(function()
 								patchTable(t)
 							end
 						end
+						-- Asegurar que OnClientInvoke esté capturado incluso si ya existe
+						if PlayerFunc.OnClientInvoke then
+							local original = PlayerFunc.OnClientInvoke
+							PlayerFunc.OnClientInvoke = function(method, ...)
+								local m = tostring(method):lower()
+								if (AutoMinigame.Enabled or AutoLockpick.Enabled) and (m:find("minigame") or m:find("lock") or m:find("hack")) then
+									warn("[Vape] ¡BLOQUEO EXITOSO (Existente)! " .. tostring(method))
+									return true
+								end
+								return original(method, ...)
+							end
+						end
+
 						warn("[Vape] God Mode Limpio. (Ignorando estados de personaje)")
 					end)
 				end)
@@ -8109,14 +8123,18 @@ run(function()
 						local targetFolder = world and world:FindFirstChild("Items") or workspace
 						
 						for _, v in pairs(targetFolder:GetDescendants()) do
+							if not AutoCash.Enabled then break end
 							if v.Name:find("Cash") or v.Name:find("Money") or v.Name == "CashDrop" then
+								-- Intentar recolectar vía Remote Event (Reportado por usuario)
+								game:GetService("ReplicatedStorage").Remote.PlayerEvent:FireServer("interacted")
+								
 								-- Intentar recolectar vía Remote Function
 								game:GetService("ReplicatedStorage").Remote.PlayerFunc:InvokeServer("talkToMission", v)
 								
 								-- Fallback con Prompt
 								local prompt = v:FindFirstChildWhichIsA("ProximityPrompt", true)
 								if prompt and prompt.Enabled then
-									firePrompt(prompt)
+									_G.firePrompt(prompt)
 								end
 							end
 						end
@@ -8133,6 +8151,7 @@ run(function()
 	local SafezonePos = nil
 	local SetSafezoneMod = nil
 	
+	local SetSafezoneMod
 	SetSafezoneMod = vape.Categories.World:CreateModule({
 		Name = "Set AutoRob Safezone",
 		Function = function(callback)
@@ -8142,7 +8161,7 @@ run(function()
 					SafezonePos = root.CFrame
 					warn("[Vape] Zona segura guardada.")
 				end
-				return false
+				task.spawn(function() SetSafezoneMod.ToggleButton(false) end)
 			end
 		end,
 		Tooltip = "Saves your current position as the safe spot."
@@ -8155,7 +8174,7 @@ run(function()
 			if callback then
 				if not SafezonePos then
 					warn("[Vape] ¡ERROR! Usa 'Set AutoRob Safezone' primero.")
-					AutoFarmer.ToggleButton(false)
+					task.spawn(function() AutoFarmer.ToggleButton(false) end)
 					return
 				end
 
@@ -8163,43 +8182,44 @@ run(function()
 				task.spawn(function()
 					while AutoFarmer.Enabled do
 						local foundRobbable = false
-						-- Buscamos en la ruta específica para máxima velocidad
+						-- Buscamos en la ruta específica
 						local atmsFolder = workspace:FindFirstChild("World")
 						if atmsFolder then atmsFolder = atmsFolder:FindFirstChild("Interactive") end
 						if atmsFolder then atmsFolder = atmsFolder:FindFirstChild("ATMs") end
 						
-						local list = atmsFolder and atmsFolder:GetChildren() or workspace:GetDescendants()
+						-- Si no hay folder, buscamos en todo Interactive o Workspace
+						local list = (atmsFolder and atmsFolder:GetDescendants()) or (workspace:FindFirstChild("World") and workspace.World:FindFirstChild("Interactive") and workspace.World.Interactive:GetDescendants()) or workspace:GetDescendants()
 
 						for _, obj in pairs(list) do
 							if not AutoFarmer.Enabled then break end
 							
-							if obj.Name:upper():find("ATM") then
-								local prompt = obj:FindFirstChild("Mission", true) or obj:FindFirstChildWhichIsA("ProximityPrompt", true)
-								
-								if prompt and prompt.Enabled and (prompt.Name == "Mission" or prompt.ActionText:find("Rob")) then
-									foundRobbable = true
-									local root = lplr.Character and lplr.Character:FindFirstChild("HumanoidRootPart")
-									if root then
-										warn("[Vape] Robando: " .. obj.Name)
-										
-										-- TP usando Pivot para evitar detección básica
-										local targetCF = obj:GetModelCFrame() * CFrame.new(0, 0, -4)
-										lplr.Character:PivotTo(targetCF)
-										task.wait(0.5)
-										
-										firePrompt(prompt)
-										task.wait(3.5)
-										
-										warn("[Vape] Volviendo a zona segura.")
-										lplr.Character:PivotTo(SafezonePos)
-										task.wait(3)
-									end
+							-- Solo nos importan los modelos que parezcan cajeros o tengan prompts de robo
+							local prompt = obj:IsA("ProximityPrompt") and obj or obj:FindFirstChild("Mission", true) or obj:FindFirstChildWhichIsA("ProximityPrompt", true)
+							
+							if prompt and prompt.Enabled and (prompt.Name == "Mission" or (prompt.ActionText and prompt.ActionText:find("Rob"))) then
+								foundRobbable = true
+								local root = lplr.Character and lplr.Character:FindFirstChild("HumanoidRootPart")
+								if root then
+									local target = prompt.Parent:IsA("Model") and prompt.Parent or prompt.Parent.Parent
+									warn("[Vape] Robando: " .. target.Name)
+									
+									-- TP al objeto
+									local targetCF = target:GetPivot() * CFrame.new(0, 0, -4)
+									lplr.Character:PivotTo(targetCF)
+									task.wait(0.5)
+									
+									_G.firePrompt(prompt)
+									task.wait(3.5)
+									
+									warn("[Vape] Volviendo a zona segura.")
+									lplr.Character:PivotTo(SafezonePos)
+									task.wait(3)
 								end
 							end
 						end
 
 						if not foundRobbable then
-							task.wait(5)
+							task.wait(2) -- Reducido el tiempo de espera si no encuentra nada para re-escanear más rápido
 						end
 						task.wait(0.5)
 					end
