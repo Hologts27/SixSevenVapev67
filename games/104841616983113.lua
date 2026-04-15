@@ -8350,11 +8350,24 @@ run(function()
 							if targetPrompt and targetPart then
 								local char = lplr.Character
 								local root = char and char:FindFirstChild("HumanoidRootPart")
-								
 								if root then
 									vape:CreateNotification("AutoRob", "ATM Válido Detectado!", 2)
 									
-									-- TP Seguro (Maneja Modelos, Partes y Attachments)
+									-- 1. Auto-Compra de Circuito
+									local hasCircuit = lplr.Backpack:FindFirstChild("Decryption Circuit") or char:FindFirstChild("Decryption Circuit")
+									if not hasCircuit then
+										pcall(function()
+											local stuff = game:GetService("ReplicatedStorage"):FindFirstChild("Stuff")
+											local bm = stuff and stuff:FindFirstChild("Black Market")
+											local bmItem = bm and bm:FindFirstChild("Decryption Circuit", true)
+											if bmItem then
+												game:GetService("ReplicatedStorage").Remote.PlayerFunc:InvokeServer("purchase", {isRestaurant = false, item = bmItem})
+											end
+										end)
+										task.wait(1)
+									end
+
+									-- 2. TP Seguro
 									local targetCF = nil
 									if targetPart:IsA("Model") or targetPart:IsA("BasePart") then
 										targetCF = targetPart:GetPivot()
@@ -8385,9 +8398,13 @@ run(function()
 											char:PivotTo(SafezonePos)
 											task.wait(2)
 										end
-									end -- Cierre de targetCF
-								end -- Cierre de root
+									end
+								end
 							else
+								-- Aviso de que sigue vivo
+								if tick() % 20 < 1 then
+									vape:CreateNotification("AutoFarmer", "Radar OK. Esperando ATMs disponibles...", 3)
+								end
 								task.wait(2)
 							end
 						end
