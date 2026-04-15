@@ -8340,9 +8340,11 @@ run(function()
 									for _, v in pairs(workspace:GetDescendants()) do
 										if v:IsA("ProximityPrompt") and v.Enabled then
 											local txt = (v.ActionText .. v.ObjectText .. v.Parent.Name):lower()
-											-- Filtro estricto: Hack/Decryption y NO Lockpick
+											-- Filtro estricto: Hack/Decryption y NO Lockpick/Yate/Barco
 											if (txt:find("hack") or txt:find("decryption") or txt:find("starthack")) and not txt:find("lockpick") then
-												if not blacklist[v.Parent] and not txt:find("npc") and not txt:find("yacht") then
+												-- Filtro de barcos y yates (agregado boat, ship)
+												local isBoat = txt:find("yacht") or txt:find("boat") or txt:find("ship") or txt:find("yatch")
+												if not blacklist[v.Parent] and not txt:find("npc") and not isBoat then
 													targetPrompt = v
 													targetPart = v.Parent
 													break
@@ -8368,7 +8370,7 @@ run(function()
 										blacklist[targetPart] = tick()
 										char:PivotTo(SafezonePos)
 									else
-										vape:CreateNotification("AutoRob", "ATM Válido Detectado!", 2)
+										vape:CreateNotification("AutoRob", "Objetivo: " .. targetPart.Name, 2)
 										
 										-- Auto-Compra
 										local hasCircuit = lplr.Backpack:FindFirstChild("Decryption Circuit") or char:FindFirstChild("Decryption Circuit")
@@ -8384,18 +8386,27 @@ run(function()
 											task.wait(1)
 										end
 
-										-- TP y Ejecución
-										local targetCF = nil
-										if targetPart:IsA("Model") or targetPart:IsA("BasePart") then
-											targetCF = targetPart:GetPivot()
-										elseif targetPart:IsA("Attachment") then
-											targetCF = CFrame.new(targetPart.WorldPosition)
-										end
+										-- 3. Secuencia Flash & Hide (V40)
+										local baseCF = targetPart:IsA("Model") and targetPart:GetPivot() or targetPart.CFrame
+										local surfacePos = baseCF * CFrame.new(0, 0, 2.8)
+										local hidePos = baseCF * CFrame.new(0, -9, 0)
+										
+										-- Noclip Activo durante el Robo
+										local noclipLoop = game:GetService("RunService").Stepped:Connect(function()
+											if char then
+												for _, p in pairs(char:GetDescendants()) do
+													if p:IsA("BasePart") then p.CanCollide = false end
+												end
+											end
+										end)
 
-										if targetCF then
-											char:PivotTo(targetCF * CFrame.new(0, 3.5, 0))
-											task.wait(0.7)
+										if surfacePos then
+											root.Anchored = true
+											-- Fase 1: Flash (Aparecer)
+											root.CFrame = surfacePos
+											task.wait(0.4)
 											
+											-- Fase 2: Hackear
 											local startOk = false
 											pcall(function()
 												game:GetService("ReplicatedStorage").Remote.PlayerEvent:FireServer("interacted")
@@ -8404,17 +8415,24 @@ run(function()
 												startOk = true
 											end)
 											
-											task.wait(1)
+											task.wait(0.5) -- Espera de seguridad para asentar el hackeo
+											
+											-- Fase 3: Hide (Inmersión)
+											root.CFrame = hidePos
+											
 											if not startOk then
 												blacklist[targetPart] = tick()
+												noclipLoop:Disconnect()
 												char:PivotTo(SafezonePos)
 											else
 												blacklist[targetPart] = tick()
-												waitForLootCompletion()
+												waitForLootCompletion() -- Recoge desde el búnker
 												task.wait(0.5)
+												noclipLoop:Disconnect()
 												char:PivotTo(SafezonePos)
-												task.wait(2)
+												task.wait(1.5)
 											end
+											root.Anchored = false
 										end
 									end -- Cierre del else (no lockpick)
 								end
