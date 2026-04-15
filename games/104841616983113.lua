@@ -8347,9 +8347,9 @@ run(function()
 											end
 										end
 
-										-- 2. Teletransporte al objetivo (POR DEBAJO DEL SUELO)
+										-- 2. Teletransporte al objetivo (PROFUNDIDAD TOTAL)
 										warn("[Vape] Yendo a ATM: " .. obj:GetFullName())
-										char:PivotTo(obj:GetPivot() * CFrame.new(0, -7, 0)) -- -7 studs en el eje Y (abajo)
+										char:PivotTo(CFrame.new(obj:GetPivot().Position + Vector3.new(0, -10, 0))) -- -10 studs exactos hacia abajo
 										task.wait(1.2) 
 
 										-- 3. ESCANEO DE PROXIMIDAD Y MODIFICACIÓN DE RANGO
