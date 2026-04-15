@@ -8359,12 +8359,23 @@ run(function()
 
 										local robPrompt = nil
 										for _, p in pairs(obj:GetDescendants()) do
-											if p:IsA("ProximityPrompt") then robPrompt = p break end
+											if p:IsA("ProximityPrompt") then 
+												local text = (p.ActionText or ""):lower()
+												if text:find("hack") or text:find("rob") or p.KeyboardKeyCode == Enum.KeyCode.F then
+													robPrompt = p 
+													p.Enabled = true -- Forzamos activación local
+													break 
+												end
+											end
 										end
 
 										if robPrompt then
+											warn("[Vape] ¡Botón de hackeo encontrado! Iniciando...")
 											_G.firePrompt(robPrompt)
 											task.wait(5.5)
+										else
+											warn("[Vape] No se encontró botón de hackeo en este ATM (posible cooldown).")
+											task.wait(1)
 										end
 
 										-- 3. Limpieza de este ciclo
