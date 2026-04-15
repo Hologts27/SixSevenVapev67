@@ -8072,19 +8072,6 @@ run(function()
 								patchTable(t)
 							end
 						end
-						-- Asegurar que OnClientInvoke esté capturado incluso si ya existe
-						if PlayerFunc.OnClientInvoke then
-							local original = PlayerFunc.OnClientInvoke
-							PlayerFunc.OnClientInvoke = function(method, ...)
-								local m = tostring(method):lower()
-								if (AutoMinigame.Enabled or AutoLockpick.Enabled) and (m:find("minigame") or m:find("lock") or m:find("hack")) then
-									warn("[Vape] ¡BLOQUEO EXITOSO (Existente)! " .. tostring(method))
-									return true
-								end
-								return original(method, ...)
-							end
-						end
-
 						warn("[Vape] God Mode Limpio. (Ignorando estados de personaje)")
 					end)
 				end)
@@ -8164,6 +8151,27 @@ run(function()
 			p:InputHoldEnd()
 		end
 	end
+
+	-- Módulo para No Fall Damage
+	vape.Categories.World:CreateModule({
+		Name = "No Fall Damage",
+		Function = function(callback)
+			if callback then
+				task.spawn(function()
+					while task.wait(1) do
+						local char = lplr.Character
+						if char and char:FindFirstChild("Humanoid") then
+							-- Deshabilitamos los estados que suelen activar el daño o el ragdoll por caída
+							char.Humanoid:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+							char.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, false)
+						end
+						if not callback then break end
+					end
+				end)
+			end
+		end,
+		Tooltip = "Disables fall damage and ragdolling when landing."
+	})
 
 	-- Módulo para Auto ATM Farmer
 	local AutoFarmer = {Enabled = false}
