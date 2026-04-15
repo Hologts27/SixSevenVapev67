@@ -8338,11 +8338,12 @@ run(function()
 									local char = lplr.Character
 									local root = char and char:FindFirstChild("HumanoidRootPart")
 									if root then
-										-- 1. TP para que el juego cargue la interfaz del cajero
+										-- 1. Teletransporte inicial (Hacia el botón exacto)
 										char:PivotTo(obj:GetPivot() * CFrame.new(0, 0, -2))
-										task.wait(0.5)
+										warn("[Vape] Llegamos al ATM. Esperando que carguen los botones...")
+										task.wait(1.2) -- Pausa necesaria para que el servidor muestre el botón
 
-										-- 2. Comprobar si el botón de hackear aparece estando cerca
+										-- 2. Comprobar si el botón de hackear aparece
 										local robPrompt = nil
 										for _, p in pairs(obj:GetDescendants()) do
 											if p:IsA("ProximityPrompt") and p.Enabled then
@@ -8354,31 +8355,33 @@ run(function()
 											end
 										end
 
-										-- 3. Si no hay botón, es que ya fue robado. Lo blacklisteamos.
+										-- 3. Si no hay botón, blacklisteamos y nos vamos
 										if not robPrompt then
-											warn("[Vape] ATM sin botón de robo (posible cooldown). Saltando...")
+											warn("[Vape] ATM vacío o en cooldown. Volviendo...")
 											blacklist[obj] = tick()
 											char:PivotTo(SafezonePos)
-											foundATM = false -- Buscamos el siguiente inmediatamente
+											task.wait(1.5) -- Pausa de descanso
+											foundATM = false 
 										else
 											-- 4. Si hay botón, procedemos al robo
-											warn("[Vape] ¡Cajero listo para hackear!")
+											warn("[Vape] ¡Cajero activo! Iniciando hackeo...")
 											blacklist[obj] = tick()
 											
-											-- Compra de circuito si no hay
+											-- Compra de circuito
 											if not hasCircuit() then
 												local item = getBlackMarketItem()
 												if item then
 													game:GetService("ReplicatedStorage").Remote.PlayerFunc:InvokeServer("purchase", {isRestaurant = false, item = item})
-													task.wait(0.5)
+													task.wait(0.8)
 												end
 											end
 
 											-- Interacción
 											_G.firePrompt(robPrompt)
-											task.wait(4.5)
+											task.wait(5) -- Tiempo de robo
 											char:PivotTo(SafezonePos)
-											task.wait(2)
+											warn("[Vape] Robo completado. Descansando...")
+											task.wait(2.5) -- Pausa entre cajeros para evitar sospechas
 										end
 									end
 								end
