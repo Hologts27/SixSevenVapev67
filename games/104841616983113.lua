@@ -8343,12 +8343,15 @@ run(function()
 										warn("[Vape] Llegamos. Iniciando Escaneo de Proximidad...")
 										task.wait(1.2) 
 
-										-- 2. ESCANEO DE PROXIMIDAD: Buscamos botones en un radio de 10 studs
+										-- 2. ESCANEO DE PROXIMIDAD (Sujeto a corrección de tipo)
 										local robPrompt = nil
 										for _, p in pairs(workspace:GetDescendants()) do
-											-- Solo miramos ProximityPrompts que estén cerca del jugador
 											if p:IsA("ProximityPrompt") then
-												if (p.Parent:GetPivot().Position - root.Position).Magnitude < 10 then
+												-- Obtenemos la posición real sin importar el tipo de objeto
+												local parent = p.Parent
+												local pPos = (parent:IsA("PVInstance") and parent:GetPivot().Position) or (parent:IsA("Attachment") and parent.WorldPosition)
+												
+												if pPos and (pPos - root.Position).Magnitude < 10 then
 													local text = (p.ActionText or ""):lower()
 													if p.KeyboardKeyCode == Enum.KeyCode.F or text:find("hack") or text:find("rob") then
 														robPrompt = p
