@@ -8256,23 +8256,33 @@ run(function()
 	end
 
 	local function waitForLootCompletion()
-		local root = game:GetService("Players").LocalPlayer.Character and game:GetService("Players").LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+		local root = lplr.Character and lplr.Character:FindFirstChild("HumanoidRootPart")
 		if not root then return end
-		task.wait(2.5)
-		local startWait = tick()
-		while tick() - startWait < 12 do
+		
+		task.wait(3) -- Espera inicial para que empiecen a caer los billetes
+		local lastLootSeen = tick()
+		
+		-- Bucle de Paciencia: Mientras veamos dinero o no hayan pasado 2s de silencio
+		while tick() - lastLootSeen < 2 do
 			local lootFound = false
+			local objects = workspace:GetChildren() -- Escaneo rápido de nivel superior primero
+			
+			-- Buscamos billetes (10, 50, 100, Cash, etc) en un radio de 20m
 			for _, v in pairs(workspace:GetDescendants()) do
-				if (v.Name:find("10") or v.Name:find("50") or v.Name:find("100")) and v:IsA("BasePart") then
-					if (v.Position - root.Position).Magnitude < 15 then
-						lootFound = true
-						break
+				if v:IsA("BasePart") or v:IsA("MeshPart") then
+					local n = v.Name:lower()
+					if n:find("10") or n:find("50") or n:find("100") or n:find("cash") or n:find("money") then
+						if (v.Position - root.Position).Magnitude < 20 then
+							lootFound = true
+							lastLootSeen = tick() -- Reseteamos el temporizador de paciencia
+							break
+						end
 					end
 				end
 			end
-			if not lootFound then task.wait(0.5) return end
-			task.wait(0.5)
+			task.wait(1.5) -- Escaneo lento para no dar lag
 		end
+		-- warn("[Vape] Recogida completada o tiempo agotado. Volviendo...")
 	end
 
 	local SetSafezoneMod
@@ -8307,10 +8317,22 @@ run(function()
 
 				task.spawn(function()
 					while AutoFarmer.Enabled do
-							-- 1. Check de Policía (DESACTIVADO PARA VALIDAR RADAR)
-							local pCount = 3 -- Simulación de seguridad
+						-- 1. Check de Policía Real (V33)
+						local pCount = 0
+						pcall(function()
+							local teams = game:GetService("Teams")
+							local pol = teams and teams:FindFirstChild("Police")
+							pCount = pol and #pol:GetPlayers() or 0
+						end)
 
-							-- 2. RADAR OPTIMIZADO V31
+						if pCount < 3 then
+							if tick() - lastPoliceWarn > 30 then
+								vape:CreateNotification("Seguridad", "Servidor inseguro ("..pCount.."/3 oficiales)", 3)
+								lastPoliceWarn = tick()
+							end
+							task.wait(5)
+						else
+							-- 2. Radar Optimizado (V33)
 							local targetPrompt, targetPart = nil, nil
 							if not lastScanTime or tick() - lastScanTime > 1.5 then
 								lastScanTime = tick()
@@ -8318,7 +8340,8 @@ run(function()
 									for _, v in pairs(workspace:GetDescendants()) do
 										if v:IsA("ProximityPrompt") and v.Enabled then
 											local txt = (v.ActionText .. v.ObjectText .. v.Parent.Name):lower()
-											if txt:find("hack") or txt:find("decryption") or txt:find("starthack") then
+											-- Filtro estricto: Hack/Decryption y NO Lockpick
+											if (txt:find("hack") or txt:find("decryption") or txt:find("starthack")) and not txt:find("lockpick") then
 												if not blacklist[v.Parent] and not txt:find("npc") and not txt:find("yacht") then
 													targetPrompt = v
 													targetPart = v.Parent
@@ -8330,7 +8353,7 @@ run(function()
 								end)
 							end
 
-							-- Limpieza inteligente de blacklist
+							-- Limpieza de Blacklist
 							for obj, tm in pairs(blacklist) do
 								if tick() - tm > 45 then blacklist[obj] = nil end
 							end
@@ -8339,9 +8362,16 @@ run(function()
 								local char = lplr.Character
 								local root = char and char:FindFirstChild("HumanoidRootPart")
 								if root then
+									-- Verificación Final Post-Pausa
+									local checkTxt = (targetPrompt.ActionText .. targetPrompt.ObjectText):lower()
+									if checkTxt:find("lockpick") then
+										blacklist[targetPart] = tick()
+										continue
+									end
+
 									vape:CreateNotification("AutoRob", "ATM Válido Detectado!", 2)
 									
-									-- 1. Auto-Compra de Circuito
+									-- Auto-Compra
 									local hasCircuit = lplr.Backpack:FindFirstChild("Decryption Circuit") or char:FindFirstChild("Decryption Circuit")
 									if not hasCircuit then
 										pcall(function()
@@ -8355,7 +8385,7 @@ run(function()
 										task.wait(1)
 									end
 
-									-- 2. TP Seguro
+									-- TP y Ejecución
 									local targetCF = nil
 									if targetPart:IsA("Model") or targetPart:IsA("BasePart") then
 										targetCF = targetPart:GetPivot()
