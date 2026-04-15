@@ -8365,27 +8365,28 @@ run(function()
 									if targetCF then
 										char:PivotTo(targetCF * CFrame.new(0, 3.5, 0))
 										task.wait(0.7)
-									
-									local startOk = false
-									pcall(function()
-										game:GetService("ReplicatedStorage").Remote.PlayerEvent:FireServer("interacted")
-										task.wait(0.3)
-										game:GetService("ReplicatedStorage").Remote.PlayerFunc:InvokeServer("talkToMission", targetPart)
-										startOk = true
-									end)
-									
-									task.wait(1)
-									if not startOk then
-										blacklist[targetPart] = tick()
-										char:PivotTo(SafezonePos)
-									else
-										blacklist[targetPart] = tick()
-										waitForLootCompletion()
-										task.wait(0.5)
-										char:PivotTo(SafezonePos)
-										task.wait(2)
-									end
-								end
+										
+										local startOk = false
+										pcall(function()
+											game:GetService("ReplicatedStorage").Remote.PlayerEvent:FireServer("interacted")
+											task.wait(0.3)
+											game:GetService("ReplicatedStorage").Remote.PlayerFunc:InvokeServer("talkToMission", targetPart)
+											startOk = true
+										end)
+										
+										task.wait(1)
+										if not startOk then
+											blacklist[targetPart] = tick()
+											char:PivotTo(SafezonePos)
+										else
+											blacklist[targetPart] = tick()
+											waitForLootCompletion()
+											task.wait(0.5)
+											char:PivotTo(SafezonePos)
+											task.wait(2)
+										end
+									end -- Cierre de targetCF
+								end -- Cierre de root
 							else
 								task.wait(2)
 							end
