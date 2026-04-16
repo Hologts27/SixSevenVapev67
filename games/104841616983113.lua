@@ -1228,7 +1228,10 @@ run(function()
 		return nil
 	end
 
+	local busy = false
 	local function getTarget(origin, obj)
+		if busy then return nil end
+		busy = true
 		local success, result = pcall(function()
 			if not origin then return nil end
 			if rand.NextNumber(rand, 0, 100) > (AutoFire.Enabled and 100 or HitChance.Value) then return nil end
@@ -1275,6 +1278,7 @@ run(function()
 			end
 			return nil
 		end)
+		busy = false
 		return success and result or nil
 	end
 
