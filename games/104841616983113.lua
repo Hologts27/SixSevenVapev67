@@ -1194,14 +1194,30 @@ run(function()
 	local function getTire(plr)
 		local vehicle = getVehicle(plr)
 		if vehicle then
+			local root = plr.Character and plr.Character:FindFirstChild("HumanoidRootPart")
+			if not root then return nil end
+
+			-- RANGO: Comprobamos que el coche no esté más lejos que nuestro slider de Range
+			local dist = (gameCamera.CFrame.Position - root.Position).Magnitude
+			if dist > Range.Value then return nil end
+
 			local tires = {}
+			local rayparams = RaycastParams.new()
+			rayparams.FilterDescendantsInstances = {lplr.Character, gameCamera, vehicle, (plr.Character or nil)}
+			rayparams.FilterType = Enum.RaycastFilterType.Exclude
+
 			for i, v in vehicle:GetDescendants() do
 				if v.Name == "WheelCollision" and v:IsA("BasePart") then
 					if v.Transparency < 0.5 then
-						table.insert(tires, v)
+						-- VISIBILIDAD: Raycast desde la cámara al neumático
+						local ray = workspace:Raycast(gameCamera.CFrame.Position, (v.Position - gameCamera.CFrame.Position), rayparams)
+						if not ray then -- Si no hay nada en medio (o es el propio neumático)
+							table.insert(tires, v)
+						end
 					end
 				end
 			end
+			
 			if #tires > 0 then
 				table.sort(tires, function(a, b)
 					return (a.Position - gameCamera.CFrame.Position).Magnitude < (b.Position - gameCamera.CFrame.Position).Magnitude
@@ -1214,33 +1230,49 @@ run(function()
 
 	local function getTarget(origin, obj)
 		if rand.NextNumber(rand, 0, 100) > (AutoFire.Enabled and 100 or HitChance.Value) then return end
-		local targetPart = (rand.NextNumber(rand, 0, 100) < (AutoFire.Enabled and 100 or HeadshotChance.Value)) and "Head" or "RootPart"
 		
+		-- BUSQUEDA INTELIGENTE: Buscamos cualquier parte para no perder al enemigo (Fix HS% bajo)
 		local ent = entitylib["Entity"..Mode.Value]({
 			Range = Range.Value,
 			Wallcheck = Target.Walls.Enabled and (obj or true) or nil,
-			Part = targetPart,
+			Part = "Head",
 			Origin = origin,
 			Players = Target.Players.Enabled,
 			NPCs = Target.NPCs.Enabled
 		})
+		
+		if not ent then
+			ent = entitylib["Entity"..Mode.Value]({
+				Range = Range.Value,
+				Wallcheck = Target.Walls.Enabled and (obj or true) or nil,
+				Part = "RootPart",
+				Origin = origin,
+				Players = Target.Players.Enabled,
+				NPCs = Target.NPCs.Enabled
+			})
+		end
 
-		if ent and ent[targetPart] and ent[targetPart].Parent then
+		if ent and ent.Player then
 			targetinfo.Targets[ent] = tick() + 1
 			
-			-- Lógica de vehículos: Solo si Walls está deshabilitado
-			if not Target.Walls.Enabled and ent.Player then
+			-- 1. PRIORIDAD: NEUMÁTICOS (Ignora HS% totalmente)
+			if not Target.Walls.Enabled then
 				local tire = getTire(ent.Player)
 				if tire and tire.Parent then
-					return ent, tire, origin
+					-- Devolvemos el neumatico y un flag de 'isVehicle'
+					return ent, tire, origin, true
 				end
 			end
 
-			if Projectile.Enabled then
-				ProjectileRaycast.FilterDescendantsInstances = {gameCamera, ent.Character}
-				ProjectileRaycast.CollisionGroup = ent[targetPart].CollisionGroup
+			-- 2. JUGADORES: (Aplicamos HS% aquí si no es un vehículo)
+			local targetPart = (rand.NextNumber(rand, 0, 100) < (AutoFire.Enabled and 100 or HeadshotChance.Value)) and "Head" or "RootPart"
+			if ent[targetPart] and ent[targetPart].Parent then
+				if Projectile.Enabled then
+					ProjectileRaycast.FilterDescendantsInstances = {gameCamera, ent.Character}
+					ProjectileRaycast.CollisionGroup = ent[targetPart].CollisionGroup
+				end
+				return ent, ent[targetPart], origin, false
 			end
-			return ent, ent[targetPart], origin
 		end
 
 		return nil
@@ -1250,7 +1282,7 @@ run(function()
 		FindPartOnRayWithIgnoreList = function(args, self)
 			if typeof(self) ~= "Instance" or (self.ClassName ~= "Workspace" and not self:IsA("WorldRoot")) then return end
 			if typeof(args[1]) ~= "Ray" then return end
-			local ent, targetPart, origin = getTarget(args[1].Origin, {args[2]})
+			local ent, targetPart, origin, isVehicle = getTarget(args[1].Origin, {args[2]})
 			if not ent or not targetPart then return end
 			if Wallbang.Enabled then
 				return {targetPart, targetPart.Position, (targetPart:IsA("BasePart") and targetPart:GetClosestPointOnSurface(origin) or Vector3.new(0, 1, 0)), targetPart.Material}
@@ -1263,7 +1295,7 @@ run(function()
 			if typeof(self) ~= "Instance" or (self.ClassName ~= "Workspace" and not self:IsA("WorldRoot")) then return end
 			if typeof(args[1]) ~= "Vector3" or typeof(args[2]) ~= "Vector3" then return end
 			if MethodRay.Value ~= 'All' and args[3] and args[3].FilterType ~= Enum.RaycastFilterType[MethodRay.Value] then return end
-			local ent, targetPart, origin = getTarget(args[1])
+			local ent, targetPart, origin, isVehicle = getTarget(args[1])
 			if not ent then return end
 			local dir = (targetPart.Position - origin)
 			if dir.Magnitude == 0 then return end
@@ -1275,29 +1307,36 @@ run(function()
 		end,
 		ScreenPointToRay = function(args, self)
 			if typeof(self) ~= "Instance" or not self:IsA("WorldRoot") then return end
-			local ent, targetPart, origin = getTarget(gameCamera.CFrame.Position)
+			local ent, targetPart, origin, isVehicle = getTarget(gameCamera.CFrame.Position)
 			if not ent or not targetPart then return end
-			local dir = (targetPart.Position - origin)
-			if dir.Magnitude == 0 then return end
-			local direction = dir.Unit
-			if Projectile.Enabled then
-				local calc = prediction.SolveTrajectory(origin, ProjectileSpeed.Value, ProjectileGravity.Value, targetPart.Position, targetPart.Velocity, workspace.Gravity, ent.HipHeight, nil, ProjectileRaycast)
-				if not calc then return end
-				direction = (calc - origin).Unit
+			local direction = (targetPart.Position - origin).Unit
+			
+			-- 3. TRAVEL TIME SIMULATION: Forzado para vehículos o si Projectile está ON
+			if Projectile.Enabled or isVehicle then
+				local speed = Projectile.Enabled and ProjectileSpeed.Value or 1500
+				local grav = Projectile.Enabled and ProjectileGravity.Value or 192.6
+				local calc = prediction.SolveTrajectory(origin, speed, grav, targetPart.Position, targetPart.Velocity, workspace.Gravity, ent.HipHeight, nil, ProjectileRaycast)
+				if calc then 
+					direction = (calc - origin).Unit
+				end
 			end
+			
 			return {Ray.new(origin + (args[3] and direction * args[3] or Vector3.zero), direction)}
 		end,
 		Ray = function(args)
-			local ent, targetPart, origin = getTarget(args[1])
+			local ent, targetPart, origin, isVehicle = getTarget(args[1])
 			if not ent or not targetPart then return end
-			if Projectile.Enabled then
-				local calc = prediction.SolveTrajectory(origin, ProjectileSpeed.Value, ProjectileGravity.Value, targetPart.Position, targetPart.Velocity, workspace.Gravity, ent.HipHeight, nil, ProjectileRaycast)
-				if not calc then return end
-				args[2] = (calc - origin).Unit * args[2].Magnitude
+			if Projectile.Enabled or isVehicle then
+				local speed = Projectile.Enabled and ProjectileSpeed.Value or 1500
+				local grav = Projectile.Enabled and ProjectileGravity.Value or 192.6
+				local calc = prediction.SolveTrajectory(origin, speed, grav, targetPart.Position, targetPart.Velocity, workspace.Gravity, ent.HipHeight, nil, ProjectileRaycast)
+				if calc then 
+					args[2] = (calc - origin).Unit * args[2].Magnitude
+				else
+					args[2] = (targetPart.Position - origin).Unit * args[2].Magnitude
+				end
 			else
-				local dir = (targetPart.Position - origin)
-				if dir.Magnitude == 0 then return end
-				args[2] = dir.Unit * args[2].Magnitude
+				args[2] = (targetPart.Position - origin).Unit * args[2].Magnitude
 			end
 		end
 	}
