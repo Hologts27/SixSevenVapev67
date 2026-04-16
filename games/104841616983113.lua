@@ -1231,42 +1231,36 @@ run(function()
 	local function getTarget(origin, obj)
 		if rand.NextNumber(rand, 0, 100) > (AutoFire.Enabled and 100 or HitChance.Value) then return end
 		
-		-- BUSQUEDA INTELIGENTE: Buscamos cualquier parte para no perder al enemigo (Fix HS% bajo)
+		-- BUSCAMOS LA ENTIDAD (Sin HS% todavía para detectar si está en coche)
 		local ent = entitylib["Entity"..Mode.Value]({
 			Range = Range.Value,
-			Wallcheck = Target.Walls.Enabled and (obj or true) or nil,
-			Part = "Head",
+			Wallcheck = nil, -- Busqueda inicial sin wallcheck para mayor detección
+			Part = "RootPart",
 			Origin = origin,
 			Players = Target.Players.Enabled,
 			NPCs = Target.NPCs.Enabled
 		})
-		
-		if not ent then
-			ent = entitylib["Entity"..Mode.Value]({
-				Range = Range.Value,
-				Wallcheck = Target.Walls.Enabled and (obj or true) or nil,
-				Part = "RootPart",
-				Origin = origin,
-				Players = Target.Players.Enabled,
-				NPCs = Target.NPCs.Enabled
-			})
-		end
 
 		if ent and ent.Player then
-			targetinfo.Targets[ent] = tick() + 1
-			
-			-- 1. PRIORIDAD: NEUMÁTICOS (Ignora HS% totalmente)
-			if not Target.Walls.Enabled then
-				local tire = getTire(ent.Player)
-				if tire and tire.Parent then
-					-- Devolvemos el neumatico y un flag de 'isVehicle'
-					return ent, tire, origin, true
-				end
+			-- 1. DETECCIÓN DE VEHÍCULO: Si está en coche, ignoramos todo y vamos a ruedas
+			local tire = getTire(ent.Player)
+			if tire and tire.Parent then
+				targetinfo.Targets[ent] = tick() + 1
+				return ent, tire, origin, true -- isVehicle = true
 			end
 
-			-- 2. JUGADORES: (Aplicamos HS% aquí si no es un vehículo)
+			-- 2. SI NO ESTÁ EN COCHE: Comprobación de paredes y HS% normal
+			if Target.Walls.Enabled and obj then
+				local rayparams = RaycastParams.new()
+				rayparams.FilterDescendantsInstances = {lplr.Character, gameCamera, ent.Character}
+				rayparams.FilterType = Enum.RaycastFilterType.Exclude
+				local wall = workspace:Raycast(origin, (ent.RootPart.Position - origin), rayparams)
+				if wall then return nil end
+			end
+
 			local targetPart = (rand.NextNumber(rand, 0, 100) < (AutoFire.Enabled and 100 or HeadshotChance.Value)) and "Head" or "RootPart"
 			if ent[targetPart] and ent[targetPart].Parent then
+				targetinfo.Targets[ent] = tick() + 1
 				if Projectile.Enabled then
 					ProjectileRaycast.FilterDescendantsInstances = {gameCamera, ent.Character}
 					ProjectileRaycast.CollisionGroup = ent[targetPart].CollisionGroup
@@ -1401,18 +1395,25 @@ run(function()
 							CircleObject.Position = inputService:GetMouseLocation()
 						end
 						if AutoFire.Enabled then
-							local origin = AutoFireMode.Value == "Camera" and gameCamera.CFrame or entitylib.isAlive and entitylib.character.RootPart.CFrame or CFrame.identity
+							local originPos = AutoFireMode.Value == "Camera" and gameCamera.CFrame or entitylib.isAlive and entitylib.character.RootPart.CFrame or CFrame.identity
 							local ent = entitylib["Entity"..Mode.Value]({
 								Range = Range.Value,
 								Wallcheck = Target.Walls.Enabled or nil,
-								Part = "Head",
-								Origin = (origin * fireoffset).Position,
+								Part = "Head", -- Buscamos al jugador
+								Origin = (originPos * fireoffset).Position,
 								Players = Target.Players.Enabled,
 								NPCs = Target.NPCs.Enabled
 							})
 
+							-- FIX: Si el jugador está en un coche, buscamos la rueda para el AutoFire
+							local autoFireTargetPart = ent and ent.Head
+							if ent and ent.Player then
+								local tire = getTire(ent.Player)
+								if tire then autoFireTargetPart = tire end
+							end
+
 							if mouse1click and isactive() then
-								if ent and canClick() then
+								if autoFireTargetPart and canClick() then
 									if delayCheck < tick() then
 										if mouseClicked then
 											mouse1release()
