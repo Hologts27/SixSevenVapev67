@@ -1231,41 +1231,45 @@ run(function()
 	local function getTarget(origin, obj)
 		if rand.NextNumber(rand, 0, 100) > (AutoFire.Enabled and 100 or HitChance.Value) then return end
 		
-		-- BUSCAMOS LA ENTIDAD (Sin HS% todavía para detectar si está en coche)
+		-- BUSCAMOS LA ENTIDAD
 		local ent = entitylib["Entity"..Mode.Value]({
 			Range = Range.Value,
-			Wallcheck = nil, -- Busqueda inicial sin wallcheck para mayor detección
+			Wallcheck = nil,
 			Part = "RootPart",
 			Origin = origin,
 			Players = Target.Players.Enabled,
 			NPCs = Target.NPCs.Enabled
 		})
 
-		if ent and ent.Player then
-			-- 1. DETECCIÓN DE VEHÍCULO: Si está en coche, ignoramos todo y vamos a ruedas
+		if ent and ent.Player and ent.RootPart then
+			-- 1. SEGURIDAD EN VEHÍCULO: Verificamos que todo exista antes de actuar
 			local tire = getTire(ent.Player)
-			if tire and tire.Parent then
+			if tire and tire.Parent and tire:IsA("BasePart") then
 				targetinfo.Targets[ent] = tick() + 1
-				return ent, tire, origin, true -- isVehicle = true
+				return ent, tire, origin, true
 			end
 
-			-- 2. SI NO ESTÁ EN COCHE: Comprobación de paredes y HS% normal
-			if Target.Walls.Enabled and obj then
+			-- 2. SI NO HAY VEHÍCULO O SE BAJÓ: Silent Aim normal con seguridad
+			if Target.Walls.Enabled and obj and ent.RootPart then
 				local rayparams = RaycastParams.new()
 				rayparams.FilterDescendantsInstances = {lplr.Character, gameCamera, ent.Character}
 				rayparams.FilterType = Enum.RaycastFilterType.Exclude
-				local wall = workspace:Raycast(origin, (ent.RootPart.Position - origin), rayparams)
+				
+				local rayDir = (ent.RootPart.Position - origin)
+				local wall = workspace:Raycast(origin, rayDir, rayparams)
 				if wall then return nil end
 			end
 
-			local targetPart = (rand.NextNumber(rand, 0, 100) < (AutoFire.Enabled and 100 or HeadshotChance.Value)) and "Head" or "RootPart"
-			if ent[targetPart] and ent[targetPart].Parent then
+			local targetPartName = (rand.NextNumber(rand, 0, 100) < (AutoFire.Enabled and 100 or HeadshotChance.Value)) and "Head" or "RootPart"
+			local targetPart = ent[targetPartName]
+			
+			if targetPart and targetPart.Parent then
 				targetinfo.Targets[ent] = tick() + 1
 				if Projectile.Enabled then
 					ProjectileRaycast.FilterDescendantsInstances = {gameCamera, ent.Character}
-					ProjectileRaycast.CollisionGroup = ent[targetPart].CollisionGroup
+					ProjectileRaycast.CollisionGroup = targetPart.CollisionGroup
 				end
-				return ent, ent[targetPart], origin, false
+				return ent, targetPart, origin, false
 			end
 		end
 
