@@ -163,7 +163,10 @@ local function serverHop(pointer, filter)
 	local suc, httpdata = pcall(function()
 		return cacheExpire < tick() and game:HttpGet('https://games.roblox.com/v1/games/'..game.PlaceId..'/servers/Public?sortOrder='..(filter == 'Ascending' and 1 or 2)..'&excludeFullGames=true&limit=100'..(pointer and '&cursor='..pointer or '')) or cache
 	end)
-	local data = suc and httpService:JSONDecode(httpdata) or nil
+	local data
+	if suc then
+		pcall(function() data = httpService:JSONDecode(httpdata) end)
+	end
 	if data and data.data then
 		for _, v in data.data do
 			if tonumber(v.playing) < playersService.MaxPlayers and not table.find(visited, v.id) and not table.find(attempted, v.id) then
@@ -6336,8 +6339,10 @@ run(function()
 			repeat task.wait() until vape.Loaded
 		end
 	
+		local roleValue = tonumber(Role.Value) or 1
+		local groupValue = tonumber(Group.Value) or 0
 		local user = table.find(Users.ListEnabled, tostring(plr.UserId))
-		if user or getRole(plr, tonumber(Group.Value) or 0) >= (tonumber(Role.Value) or 1) then
+		if user or (getRole(plr, groupValue) >= roleValue) then
 			notif('StaffDetector', 'Staff Detected ('..(user and 'blacklisted_user' or 'staff_role')..'): '..plr.Name, 60, 'alert')
 			whitelist.customtags[plr.Name] = {{text = 'GAME STAFF', color = Color3.new(1, 0, 0)}}
 	
@@ -7015,6 +7020,7 @@ run(function()
 		Default = 0.1,
 		Decimal = 100,
 		Function = function(val)
+			if not val then return end
 			if point then
 				point.Position = Vector3.new(0, val - 2.7, 0)
 			end
