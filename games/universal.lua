@@ -1171,17 +1171,29 @@ run(function()
 
 	local IgnoreBehindWalls
 
+	local wheelCache = {}
 	local function getVehicleWheels(ent)
 		if ent.Character and ent.Character:FindFirstChild("Humanoid") then
 			local seat = ent.Character.Humanoid.SeatPart
 			if seat and seat.Parent then
+				local model = seat.Parent
+				if wheelCache[model] then return wheelCache[model] end
+				
 				local wheels = {}
-				for _, v in pairs(seat.Parent:GetDescendants()) do
+				for _, v in pairs(model:GetDescendants()) do
 					if v:IsA("BasePart") and (v.Name:lower():find("wheel") or v.Name:lower():find("tire") or v.Name == "FL" or v.Name == "FR" or v.Name == "RL" or v.Name == "RR") then
 						table.insert(wheels, v)
 					end
 				end
-				return #wheels > 0 and wheels or nil
+				
+				if #wheels > 0 then
+					wheelCache[model] = wheels
+					task.spawn(function()
+						model.AncestryChanged:Wait() -- Limpiar cache cuando el coche desaparezca
+						wheelCache[model] = nil
+					end)
+					return wheels
+				end
 			end
 		end
 		return nil
