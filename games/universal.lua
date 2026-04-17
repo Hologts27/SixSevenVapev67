@@ -1189,50 +1189,63 @@ run(function()
 
 	local function getTarget(origin, obj)
 		if rand.NextNumber(rand, 0, 100) > (AutoFire.Enabled and 100 or HitChance.Value) then return end
-		local targetPart = (rand.NextNumber(rand, 0, 100) < (AutoFire.Enabled and 100 or HeadshotChance.Value)) and "Head" or "RootPart"
+		local targetPartName = (rand.NextNumber(rand, 0, 100) < (AutoFire.Enabled and 100 or HeadshotChance.Value)) and "Head" or "RootPart"
+		
+		-- 1. Intento normal (Respeta configuración de muros del usuario)
 		local ent = entitylib["Entity"..Mode.Value]({
 			Range = Range.Value,
 			Wallcheck = Target.Walls.Enabled and (obj or true) or nil,
-			Part = targetPart,
+			Part = targetPartName,
 			Origin = origin,
 			Players = Target.Players.Enabled,
 			NPCs = Target.NPCs.Enabled
 		})
 
-		if ent and ent.Character then
-			local finalTargetPart = ent[targetPart]
-			
-			if IgnoreBehindWalls and IgnoreBehindWalls.Enabled then
-				local wheels = getVehicleWheels(ent)
+		-- 2. Lógica especial para vehículos tras paredes (Si el flag está activo)
+		if IgnoreBehindWalls and IgnoreBehindWalls.Enabled then
+			-- Buscamos el objetivo más cercano ignorando paredes para ver si está en un coche
+			local entNoWall = entitylib["Entity"..Mode.Value]({
+				Range = Range.Value,
+				Wallcheck = nil, -- Forzamos detección tras paredes
+				Part = targetPartName,
+				Origin = origin,
+				Players = Target.Players.Enabled,
+				NPCs = Target.NPCs.Enabled
+			})
+
+			if entNoWall then
+				local wheels = getVehicleWheels(entNoWall)
 				if wheels then
-					-- Priorización de ruedas: Si el jugador está en un vehículo, buscamos la rueda más cercana al cursor/fov
+					-- PRIORIDAD: Si hay ruedas, las devolvemos inmediatamente
 					local closestWheel = nil
 					local shortestDist = math.huge
+					local mousePos = inputService:GetMouseLocation()
+					
 					for _, wheel in pairs(wheels) do
 						local pos, vis = gameCamera:WorldToViewportPoint(wheel.Position)
-						if vis then
-							local mousePos = inputService:GetMouseLocation()
-							local dist = (Vector2.new(pos.X, pos.Y) - mousePos).Magnitude
-							if dist < shortestDist then
-								shortestDist = dist
-								closestWheel = wheel
-							end
+						local dist = vis and (Vector2.new(pos.X, pos.Y) - mousePos).Magnitude or 9999
+						if dist < shortestDist then
+							shortestDist = dist
+							closestWheel = wheel
 						end
 					end
+					
 					if closestWheel then
-						finalTargetPart = closestWheel
+						targetinfo.Targets[entNoWall] = tick() + 1
+						return entNoWall, closestWheel, origin
 					end
 				end
 			end
+		end
 
-			if finalTargetPart and finalTargetPart.Parent then
-				targetinfo.Targets[ent] = tick() + 1
-				if Projectile.Enabled then
-					ProjectileRaycast.FilterDescendantsInstances = {gameCamera, ent.Character}
-					ProjectileRaycast.CollisionGroup = finalTargetPart.CollisionGroup
-				end
-				return ent, finalTargetPart, origin
+		-- 3. Retorno normal si no se detectó vehículo o la opción anterior falló
+		if ent and ent.Character and ent[targetPartName] then
+			targetinfo.Targets[ent] = tick() + 1
+			if Projectile.Enabled then
+				ProjectileRaycast.FilterDescendantsInstances = {gameCamera, ent.Character}
+				ProjectileRaycast.CollisionGroup = ent[targetPartName].CollisionGroup
 			end
+			return ent, ent[targetPartName], origin
 		end
 
 		return nil
