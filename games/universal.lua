@@ -1169,6 +1169,24 @@ run(function()
 	local fireoffset, rand, delayCheck, silentAimSession, hooked = CFrame.identity, Random.new(), tick(), 0, false
 	local oldnamecall, oldray
 
+	local IgnoreBehindWalls
+
+	local function getVehicleWheels(ent)
+		if ent.Character and ent.Character:FindFirstChild("Humanoid") then
+			local seat = ent.Character.Humanoid.SeatPart
+			if seat and seat.Parent then
+				local wheels = {}
+				for _, v in pairs(seat.Parent:GetDescendants()) do
+					if v:IsA("BasePart") and (v.Name:lower():find("wheel") or v.Name:lower():find("tire") or v.Name == "FL" or v.Name == "FR" or v.Name == "RL" or v.Name == "RR") then
+						table.insert(wheels, v)
+					end
+				end
+				return #wheels > 0 and wheels or nil
+			end
+		end
+		return nil
+	end
+
 	local function getTarget(origin, obj)
 		if rand.NextNumber(rand, 0, 100) > (AutoFire.Enabled and 100 or HitChance.Value) then return end
 		local targetPart = (rand.NextNumber(rand, 0, 100) < (AutoFire.Enabled and 100 or HeadshotChance.Value)) and "Head" or "RootPart"
@@ -1181,13 +1199,40 @@ run(function()
 			NPCs = Target.NPCs.Enabled
 		})
 
-		if ent and ent[targetPart] and ent[targetPart].Parent then
-			targetinfo.Targets[ent] = tick() + 1
-			if Projectile.Enabled then
-				ProjectileRaycast.FilterDescendantsInstances = {gameCamera, ent.Character}
-				ProjectileRaycast.CollisionGroup = ent[targetPart].CollisionGroup
+		if ent and ent.Character then
+			local finalTargetPart = ent[targetPart]
+			
+			if IgnoreBehindWalls and IgnoreBehindWalls.Enabled then
+				local wheels = getVehicleWheels(ent)
+				if wheels then
+					-- Priorización de ruedas: Si el jugador está en un vehículo, buscamos la rueda más cercana al cursor/fov
+					local closestWheel = nil
+					local shortestDist = math.huge
+					for _, wheel in pairs(wheels) do
+						local pos, vis = gameCamera:WorldToViewportPoint(wheel.Position)
+						if vis then
+							local mousePos = inputService:GetMouseLocation()
+							local dist = (Vector2.new(pos.X, pos.Y) - mousePos).Magnitude
+							if dist < shortestDist then
+								shortestDist = dist
+								closestWheel = wheel
+							end
+						end
+					end
+					if closestWheel then
+						finalTargetPart = closestWheel
+					end
+				end
 			end
-			return ent, ent[targetPart], origin
+
+			if finalTargetPart and finalTargetPart.Parent then
+				targetinfo.Targets[ent] = tick() + 1
+				if Projectile.Enabled then
+					ProjectileRaycast.FilterDescendantsInstances = {gameCamera, ent.Character}
+					ProjectileRaycast.CollisionGroup = finalTargetPart.CollisionGroup
+				end
+				return ent, finalTargetPart, origin
+			end
 		end
 
 		return nil
@@ -1442,6 +1487,10 @@ run(function()
 		Darker = true
 	})
 	Wallbang = SilentAim:CreateToggle({Name = 'Wallbang'})
+	IgnoreBehindWalls = SilentAim:CreateToggle({
+		Name = 'Ignore behind walls',
+		Tooltip = 'Prioritizes vehicle wheels when players are inside vehicles and behind obstacles.'
+	})
 	SilentAim:CreateToggle({
 		Name = 'Range Circle',
 		Function = function(callback)
